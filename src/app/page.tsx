@@ -81,8 +81,10 @@ const rupiah = (n: number) =>
   }).format(n);
 
 export default function Home() {
-  const [active, setActive] = useState<PageKey>("dashboard");
-  const [mobileMenu, setMobileMenu] = useState(false);
+ const [active, setActive] = useState<PageKey>("dashboard");
+const [mobileMenu, setMobileMenu] = useState(false);
+const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(false);
+  
   const [supabase] = useState(() => createClient());
 
   const [userName, setUserName] = useState("");
@@ -203,62 +205,74 @@ export default function Home() {
         />
       )}
 
-      {/* SIDEBAR */}
-      <aside
-        className={`sidebar ${mobileMenu ? "sidebar-open" : ""}`}
+     {/* PEMICU SIDEBAR DESKTOP */}
+<div
+  className="sidebar-edge-trigger"
+  onMouseEnter={() => setDesktopSidebarOpen(true)}
+/>
+
+{/* SIDEBAR */}
+<aside
+  className={`sidebar ${
+    mobileMenu ? "sidebar-open" : ""
+  } ${
+    desktopSidebarOpen ? "sidebar-hover-open" : ""
+  }`}
+  onMouseEnter={() => setDesktopSidebarOpen(true)}
+  onMouseLeave={() => setDesktopSidebarOpen(false)}
+>
+  <div className="brand">
+    <div className="brand-mark">
+      <Store size={23} />
+    </div>
+
+    <div className="brand-text">
+      <strong>Toko Rosyidah</strong>
+      <span>Sistem Toko & Kasir</span>
+    </div>
+  </div>
+
+  <div className="store-address">
+    <span className="store-address-dot" />
+    Pasar Sebaung
+  </div>
+
+  <div className="menu-label">MENU UTAMA</div>
+
+  <nav className="nav-list">
+    {menu.map(({ key, label, icon: Icon }) => (
+      <button
+        key={key}
+        type="button"
+        className={`nav-item ${
+          active === key ? "active" : ""
+        }`}
+        onClick={() => handleMenuClick(key)}
       >
-        <div className="brand">
-          <div className="brand-mark">
-            <Store size={23} />
-          </div>
+        <Icon size={19} strokeWidth={1.8} />
 
-          <div className="brand-text">
-            <strong>Toko Rosyidah</strong>
-            <span>Sistem Toko & Kasir</span>
-          </div>
-        </div>
+        <span>{label}</span>
 
-        <div className="store-address">
-          <span className="store-address-dot" />
-          Pasar Sebaung
-        </div>
+        {key === "harga" && (
+          <span className="nav-count">!</span>
+        )}
+      </button>
+    ))}
+  </nav>
 
-        <div className="menu-label">MENU UTAMA</div>
+  <div className="sidebar-bottom">
+    <div className="user-mini">
+      <div className="user-avatar">
+        {userName.charAt(0).toUpperCase()}
+      </div>
 
-        <nav className="nav-list">
-          {menu.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={`nav-item ${
-                active === key ? "active" : ""
-              }`}
-              onClick={() => handleMenuClick(key)}
-            >
-              <Icon size={19} strokeWidth={1.8} />
-
-              <span>{label}</span>
-
-              {key === "harga" && (
-                <span className="nav-count">!</span>
-              )}
-            </button>
-          ))}
-        </nav>
-
-        <div className="sidebar-bottom">
-          <div className="user-mini">
-            <div className="user-avatar">
-              {userName.charAt(0).toUpperCase()}
-            </div>
-
-            <div className="user-mini-info">
-              <strong>{userName}</strong>
-              <span>Administrator</span>
-            </div>
-          </div>
-        </div>
-      </aside>
+      <div className="user-mini-info">
+        <strong>{userName}</strong>
+        <span>Administrator</span>
+      </div>
+    </div>
+  </div>
+</aside>
 
       {/* AREA UTAMA */}
       <section className="main-area">

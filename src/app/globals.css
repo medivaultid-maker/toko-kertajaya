@@ -6467,3 +6467,74 @@ tbody tr:last-child td {
     padding: 13px 16px;
   }
 }
+
+/* ===================================
+   AUTO HIDE SIDEBAR - DESKTOP
+=================================== */
+
+@media (min-width: 769px) {
+  .app-shell {
+    position: relative;
+    display: block;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    position: fixed !important;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1101;
+
+    width: 280px;
+
+    transform: translateX(-100%);
+    transition:
+      transform 0.3s ease,
+      box-shadow 0.3s ease;
+
+    box-shadow: none;
+  }
+
+  .sidebar.sidebar-hover-open {
+    transform: translateX(0);
+    box-shadow: 12px 0 35px rgba(20, 40, 30, 0.12);
+  }
+
+  .main-area {
+    width: 100% !important;
+    min-width: 0;
+    margin-left: 0 !important;
+  }
+
+  /* Area pemicu di tepi kiri layar */
+  .sidebar-edge-trigger {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1100;
+
+    width: 18px;
+
+    background: transparent;
+  }
+
+  .sidebar.sidebar-hover-open ~ .sidebar-edge-trigger {
+    pointer-events: none;
+  }
+}
+
+/* ===================================
+   SIDEBAR MOBILE
+=================================== */
+
+@media (max-width: 768px) {
+  .sidebar-edge-trigger {
+    display: none !important;
+  }
+
+  .sidebar {
+    transition: transform 0.3s ease;
+  }
+}
