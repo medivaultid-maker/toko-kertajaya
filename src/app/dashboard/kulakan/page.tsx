@@ -1,13 +1,37 @@
 
 "use client";
 
-import { useEffect, useState, type FormEvent, type CSSProperties } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { createClient } from "@/lib/supabase";
-
-type Category = { id: string; name: string };
+import {
+  ArrowLeft,
+  Package,
+  CalendarDays,
+  Hash,
+  Wallet,
+  Plus,
+  Pencil,
+  Trash2,
+  Save,
+  X,
+  ClipboardList,
+  PackageCheck,
+  Receipt,
+  AlertCircle,
+  CheckCircle2,
+  LoaderCircle,
+  Sparkles,
+  ShoppingBag,
+  Search,
+  Tag,
+  Boxes,
+  Check,
+  RotateCcw,
+} from "lucide-react";
 
 type Product = {
   id: string;
+  product_code: string;
   name: string;
   brand: string;
   category_id: string;
@@ -15,9 +39,11 @@ type Product = {
 
 type IntakeItem = {
   date: string;
-  category: string;
+  productId: string;
+  productCode: string;
   name: string;
   brand: string;
+  category: string;
   quantity: string;
   purchasePrice: string;
 };
@@ -32,9 +58,11 @@ const todayLocal = () => {
 
 const emptyItem = (): IntakeItem => ({
   date: todayLocal(),
-  category: "",
+  productId: "",
+  productCode: "",
   name: "",
   brand: "",
+  category: "",
   quantity: "",
   purchasePrice: "",
 });
@@ -46,15 +74,23 @@ const rupiah = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
-const normalize = (value: string) => value.trim().toLocaleLowerCase("id-ID");
+const formatDate = (value: string) =>
+  new Date(`${value}T00:00:00`).toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 
 export default function KulakanPage() {
   const [supabase] = useState(() => createClient());
 
-  const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [item, setItem] = useState<IntakeItem>(emptyItem);
   const [items, setItems] = useState<IntakeItem[]>([]);
+
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkedCode, setCheckedCode] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,22 +103,17 @@ export default function KulakanPage() {
     setError("");
 
     try {
-      const [categoryResult, productResult] = await Promise.all([
-        supabase.from("categories").select("id, name").order("name"),
-        supabase
-          .from("products")
-          .select("id, name, brand, category_id")
-          .order("name"),
-      ]);
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, product_code, name, brand, category_id")
+        .order("name");
 
-      if (categoryResult.error) throw categoryResult.error;
-      if (productResult.error) throw productResult.error;
+      if (error) throw error;
 
-      setCategories(categoryResult.data || []);
-      setProducts(productResult.data || []);
+      setProducts(data || []);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Gagal mengambil data."
+        err instanceof Error ? err.message : "Gagal mengambil data barang."
       );
     } finally {
       setLoading(false);
@@ -94,77 +125,66 @@ export default function KulakanPage() {
   }, []);
 
   function update(field: keyof IntakeItem, value: string) {
-    setItem((old) => {
-      const next = { ...old, [field]: value };
+    setItem((old) => ({ ...old, [field]: value }));
 
-      if (field === "category") {
-        const oldProduct = products.find(
-          (p) =>
-            normalize(p.name) === normalize(old.name) &&
-            normalize(p.brand) === normalize(old.brand)
-        );
-        const newCategory = categories.find(
-          (c) => normalize(c.name) === normalize(value)
-        );
-
-        if (
-          oldProduct &&
-          newCategory &&
-          oldProduct.category_id !== newCategory.id
-        ) {
-          next.name = "";
-          next.brand = "";
-        }
-      }
-
-      if (field === "name") {
-        const matching = products.find(
-          (p) =>
-            normalize(p.name) === normalize(value) &&
-            (!next.category ||
-              categories.find((c) => c.id === p.category_id)?.name ===
-                next.category)
-        );
-
-        if (matching) next.brand = matching.brand;
-      }
-
-      return next;
-    });
+    if (field === "productCode") {
+      setSelectedProduct(null);
+      setCheckedCode("");
+    }
 
     setError("");
     setMessage("");
   }
 
-  const categoryOptions = categories.map((c) => c.name);
+  async function checkProduct() {
+    const code = item.productCode.trim();
 
-  const productOptions = [
-    ...new Set(
-      products
-        .filter(
-          (p) =>
-            !item.category ||
-            categories.find((c) => c.id === p.category_id)?.name ===
-              item.category
-        )
-        .map((p) => p.name)
-    ),
-  ];
+    if (!code) {
+      setError("Masukkan kode barang terlebih dahulu.");
+      setSelectedProduct(null);
+      return;
+    }
 
-  const brandOptions = [
-    ...new Set(
-      products
-        .filter(
-          (p) =>
-            (!item.name || normalize(p.name) === normalize(item.name)) &&
-            (!item.category ||
-              categories.find((c) => c.id === p.category_id)?.name ===
-                item.category)
-        )
-        .map((p) => p.brand)
-        .filter(Boolean)
-    ),
-  ];
+    setChecking(true);
+    setError("");
+    setMessage("");
+    setSelectedProduct(null);
+    setCheckedCode("");
+
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, product_code, name, brand, category_id")
+        .eq("product_code", code)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!data) {
+        setError(`Kode barang "${code}" tidak ditemukan. Periksa kembali kode barang.`);
+        return;
+      }
+
+      setSelectedProduct(data);
+      setCheckedCode(data.product_code);
+
+      setItem((old) => ({
+        ...old,
+        productId: data.id,
+        productCode: data.product_code,
+        name: data.name,
+        brand: data.brand || "",
+      }));
+
+      setMessage("Barang berhasil ditemukan. Silakan lengkapi jumlah dan harga kulakan.");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Gagal memeriksa kode barang."
+      );
+    } finally {
+      setChecking(false);
+    }
+  }
 
   const totalQuantity = items.reduce(
     (sum, row) => sum + Number(row.quantity),
@@ -186,10 +206,16 @@ export default function KulakanPage() {
     const price = Number(item.purchasePrice);
 
     if (
+      !selectedProduct ||
+      checkedCode !== item.productCode.trim() ||
+      selectedProduct.id !== item.productId
+    ) {
+      setError("Periksa kode barang terlebih dahulu sebelum menambahkan kulakan.");
+      return;
+    }
+
+    if (
       !item.date ||
-      !item.category.trim() ||
-      !item.name.trim() ||
-      !item.brand.trim() ||
       !Number.isFinite(quantity) ||
       quantity <= 0 ||
       !Number.isInteger(quantity) ||
@@ -197,7 +223,7 @@ export default function KulakanPage() {
       price <= 0
     ) {
       setError(
-        "Lengkapi semua data. Jumlah harus bilangan bulat positif dan harga harus lebih dari nol."
+        "Lengkapi tanggal, jumlah, dan harga kulakan. Jumlah harus bilangan bulat positif dan harga harus lebih dari nol."
       );
       return;
     }
@@ -208,21 +234,34 @@ export default function KulakanPage() {
           index === editingIndex ? { ...item } : row
         )
       );
+
       setEditingIndex(null);
-      setMessage("Barang berhasil diperbarui dalam daftar.");
+      setMessage("Data kulakan berhasil diperbarui dalam daftar.");
     } else {
       setItems((old) => [...old, { ...item }]);
-      setMessage("Barang ditambahkan ke daftar kulakan.");
+      setMessage("Barang berhasil ditambahkan ke daftar kulakan.");
     }
 
-    setItem((old) => ({ ...emptyItem(), date: old.date }));
+    setItem((old) => ({
+      ...emptyItem(),
+      date: old.date,
+    }));
+
+    setSelectedProduct(null);
+    setCheckedCode("");
   }
 
   function editItem(index: number) {
-    setItem({ ...items[index] });
+    const row = items[index];
+    const product = products.find((p) => p.id === row.productId);
+
+    setItem({ ...row });
+    setSelectedProduct(product || null);
+    setCheckedCode(product?.product_code || "");
     setEditingIndex(index);
     setError("");
     setMessage("");
+
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -232,6 +271,8 @@ export default function KulakanPage() {
     if (editingIndex === index) {
       setEditingIndex(null);
       setItem(emptyItem());
+      setSelectedProduct(null);
+      setCheckedCode("");
     } else if (editingIndex !== null && editingIndex > index) {
       setEditingIndex(editingIndex - 1);
     }
@@ -243,6 +284,8 @@ export default function KulakanPage() {
   function cancelEdit() {
     setEditingIndex(null);
     setItem(emptyItem());
+    setSelectedProduct(null);
+    setCheckedCode("");
     setError("");
     setMessage("");
   }
@@ -266,67 +309,15 @@ export default function KulakanPage() {
         throw new Error("Sesi login berakhir. Silakan login kembali.");
       }
 
-      // Cache lokal mencegah pembuatan kategori/produk berulang
-      // untuk nama yang sama dalam satu proses penyimpanan.
-      const categoryCache = [...categories];
-      const productCache = [...products];
-
       for (const row of items) {
-        let category = categoryCache.find(
-          (c) => normalize(c.name) === normalize(row.category)
-        );
+        const product = products.find((p) => p.id === row.productId);
 
-        if (!category) {
-          const { data, error } = await supabase
-            .from("categories")
-            .insert({ name: row.category.trim() })
-            .select("id, name")
-            .single();
-
-          if (error) throw new Error(`Kategori: ${error.message}`);
-
-          category = data;
-          categoryCache.push(data);
-        }
-
-        let product = productCache.find(
-          (p) =>
-            normalize(p.name) === normalize(row.name) &&
-            normalize(p.brand) === normalize(row.brand)
-        );
-
-        if (product && product.category_id !== category.id) {
+        if (!product) {
           throw new Error(
-            `Barang "${row.name}" dengan merek "${row.brand}" sudah terdaftar pada kategori lain. Periksa data barang sebelum menyimpan.`
+            `Barang dengan kode "${row.productCode}" tidak ditemukan lagi. Muat ulang halaman dan periksa kembali.`
           );
         }
 
-        if (!product) {
-          const { data, error } = await supabase
-            .from("products")
-            .insert({
-              category_id: category.id,
-              name: row.name.trim(),
-              brand: row.brand.trim(),
-              unit: "pcs",
-              min_stock: 0,
-              current_purchase_cost: null,
-              current_profit_percent: null,
-              current_selling_price: null,
-              price_status: "pending_price",
-              is_active: true,
-              stock_quantity: 0,
-            })
-            .select("id, name, brand, category_id")
-            .single();
-
-          if (error) throw new Error(`Barang: ${error.message}`);
-
-          product = data;
-          productCache.push(data);
-        }
-
-        // Simpan kulakan sebagai menunggu persetujuan harga.
         const { data: intake, error: intakeError } = await supabase
           .from("purchase_intakes")
           .insert({
@@ -354,7 +345,7 @@ export default function KulakanPage() {
           .insert({
             recipient_role: "admin",
             title: "Kulakan baru menunggu persetujuan",
-            message: `${row.name} - ${row.brand}, jumlah ${row.quantity}. Harga jual perlu ditetapkan.`,
+            message: `${row.name} - ${row.brand}, kode ${row.productCode}, jumlah ${row.quantity}. Harga jual perlu ditetapkan.`,
             related_intake_id: intake.id,
             is_read: false,
           });
@@ -368,16 +359,22 @@ export default function KulakanPage() {
 
       setItems([]);
       setItem(emptyItem());
+      setSelectedProduct(null);
+      setCheckedCode("");
       setEditingIndex(null);
 
       setMessage(
-        `${savedCount} data kulakan berhasil disimpan. Barang menunggu persetujuan harga admin sebelum menambah stok yang dapat dijual.`
+        `${savedCount} data kulakan berhasil disimpan. Barang menunggu persetujuan harga admin sebelum stok dapat dijual.`
       );
 
       await loadData();
     } catch (err) {
       setError(
-        `${err instanceof Error ? err.message : "Gagal menyimpan data kulakan."}${
+        `${
+          err instanceof Error
+            ? err.message
+            : "Gagal menyimpan data kulakan."
+        }${
           savedCount > 0
             ? ` ${savedCount} baris telah tersimpan sebelum proses terhenti. Periksa data kulakan di database sebelum mencoba lagi agar tidak terjadi duplikasi.`
             : ""
@@ -388,459 +385,398 @@ export default function KulakanPage() {
     }
   }
 
-  const inputStyle: CSSProperties = {
-    width: "100%",
-    minWidth: 0,
-    padding: "12px 14px",
-    border: "1px solid #dce5de",
-    borderRadius: 10,
-    background: "#fff",
-    color: "#20352a",
-    fontSize: 14,
-    outlineColor: "#28734f",
-    boxSizing: "border-box",
-  };
-
-  const labelStyle: CSSProperties = {
-    display: "block",
-    fontSize: 13,
-    fontWeight: 650,
-    color: "#33483b",
-    marginBottom: 7,
-  };
-
-  const cardStyle: CSSProperties = {
-    background: "#fff",
-    border: "1px solid #e5ebe6",
-    borderRadius: 16,
-    padding: 22,
-    boxShadow: "0 4px 18px rgba(30, 65, 43, 0.035)",
-  };
-
-  const primaryButton: CSSProperties = {
-    padding: "12px 18px",
-    border: 0,
-    borderRadius: 10,
-    background: "#176b45",
-    color: "#fff",
-    fontWeight: 700,
-    fontSize: 14,
-    cursor: "pointer",
-  };
-
-  function field(
-    label: string,
-    key: keyof IntakeItem,
-    type = "text",
-    options?: string[],
-    placeholder?: string
-  ) {
-    const listId = `options-${key}`;
-
-    return (
-      <div key={key} style={{ minWidth: 0 }}>
-        <label htmlFor={key} style={labelStyle}>
-          {label}
-        </label>
-        <input
-          id={key}
-          type={type}
-          list={options ? listId : undefined}
-          value={item[key]}
-          onChange={(e) => update(key, e.target.value)}
-          placeholder={placeholder || `Masukkan ${label.toLowerCase()}`}
-          min={type === "number" ? "0.01" : undefined}
-          step={
-            key === "quantity"
-              ? "1"
-              : type === "number"
-                ? "any"
-                : undefined
-          }
-          required
-          style={inputStyle}
-        />
-        {options && (
-          <datalist id={listId}>
-            {[...new Set(options)].map((option) => (
-              <option key={option} value={option} />
-            ))}
-          </datalist>
-        )}
-      </div>
-    );
-  }
-
   if (loading) {
     return (
-      <main
-        style={{
-          minHeight: "100vh",
-          padding: 32,
-          background: "#f5f8f5",
-          color: "#405347",
-        }}
-      >
-        Memuat data kulakan...
+      <main className="intake-loading">
+        <div className="intake-loading-icon">
+          <LoaderCircle size={25} className="intake-spin" />
+        </div>
+        <p>Menyiapkan data kulakan...</p>
       </main>
     );
   }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#f5f8f5",
-        padding: "24px clamp(14px, 3vw, 36px) 48px",
-        color: "#23382b",
-        fontFamily: "inherit",
-      }}
-    >
-      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
-        <a
-          href="/dashboard"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            color: "#176b45",
-            fontSize: 14,
-            fontWeight: 650,
-            textDecoration: "none",
-            marginBottom: 24,
-          }}
-        >
-          ← Kembali ke Dashboard
+    <main className="intake-page">
+      <div className="intake-container">
+        <a href="/dashboard" className="intake-back">
+          <ArrowLeft size={16} />
+          <span>Kembali ke Dashboard</span>
         </a>
 
-        <header style={{ marginBottom: 26 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 12,
-            }}
-          >
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                flexShrink: 0,
-                display: "grid",
-                placeItems: "center",
-                borderRadius: 14,
-                background: "#e1f1e6",
-                fontSize: 24,
-              }}
-            >
-              📦
+        <header className="intake-header">
+          <div className="intake-heading">
+            <div className="intake-heading-icon">
+              <Package size={27} strokeWidth={1.7} />
             </div>
+
             <div>
-              <p
-                style={{
-                  margin: "0 0 4px",
-                  fontSize: 12,
-                  fontWeight: 750,
-                  letterSpacing: 1.2,
-                  color: "#47815f",
-                  textTransform: "uppercase",
-                }}
-              >
+              <div className="intake-eyebrow">
+                <Sparkles size={12} />
                 TOKO ROSYIDAH · PASAR SEBAUNG
+              </div>
+
+              <h1>Input Kulakan</h1>
+              <p>
+                Catat barang masuk dengan cepat menggunakan kode barang.
               </p>
-              <h1
-                style={{
-                  margin: 0,
-                  fontSize: "clamp(25px, 3vw, 32px)",
-                  letterSpacing: -0.7,
-                }}
-              >
-                Input Kulakan
-              </h1>
             </div>
           </div>
-          <p
-            style={{
-              margin: 0,
-              color: "#718076",
-              fontSize: 14,
-              lineHeight: 1.7,
-            }}
-          >
-            Catat barang yang baru dibeli dari pemasok. Harga jual ditetapkan
-            oleh admin setelah data kulakan disimpan.
-          </p>
+
+          <div className="intake-header-tag">
+            <ShoppingBag size={15} />
+            Pengadaan Barang
+          </div>
         </header>
 
-        {error && (
+        {(error || message) && (
           <div
-            role="alert"
-            style={{
-              marginBottom: 18,
-              padding: 15,
-              borderRadius: 12,
-              background: "#fff0ee",
-              border: "1px solid #ffd4cf",
-              color: "#a52c21",
-              fontSize: 14,
-              lineHeight: 1.6,
-            }}
+            role={error ? "alert" : "status"}
+            className={`intake-alert ${
+              error ? "intake-alert-error" : "intake-alert-success"
+            }`}
           >
-            <strong>Perlu diperiksa</strong>
-            <div>{error}</div>
+            {error ? (
+              <AlertCircle size={19} />
+            ) : (
+              <CheckCircle2 size={19} />
+            )}
+
+            <div>
+              <strong>{error ? "Perlu diperiksa" : "Berhasil"}</strong>
+              <p>{error || message}</p>
+            </div>
+
+            <button
+              type="button"
+              className="intake-alert-close"
+              onClick={() => {
+                setError("");
+                setMessage("");
+              }}
+              aria-label="Tutup notifikasi"
+            >
+              <X size={16} />
+            </button>
           </div>
         )}
 
-        {message && (
-          <div
-            role="status"
-            style={{
-              marginBottom: 18,
-              padding: 15,
-              borderRadius: 12,
-              background: "#eaf6ed",
-              border: "1px solid #cce8d2",
-              color: "#21683e",
-              fontSize: 14,
-              lineHeight: 1.6,
-            }}
-          >
-            {message}
-          </div>
-        )}
+        <section className="intake-card">
+          <div className="intake-section-heading">
+            <div className="intake-section-icon">
+              <ClipboardList size={20} />
+            </div>
 
-        <section style={cardStyle}>
-          <div style={{ marginBottom: 22 }}>
-            <h2 style={{ margin: "0 0 6px", fontSize: 19 }}>
-              Informasi barang
-            </h2>
-            <p style={{ margin: 0, color: "#77847a", fontSize: 13 }}>
-              Isi detail kulakan, lalu tambahkan ke daftar sebelum menyimpan.
-            </p>
+            <div>
+              <h2>Informasi Kulakan</h2>
+              <p>
+                Masukkan kode barang untuk mengambil data produk secara otomatis.
+              </p>
+            </div>
+
+            <span className="intake-step">01 / INPUT</span>
           </div>
 
           <form onSubmit={addItem}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 230px), 1fr))",
-                gap: 18,
-              }}
-            >
-              {field("Tanggal kulakan", "date", "date")}
-              {field("Kategori", "category", "text", categoryOptions)}
-              {field("Nama barang", "name", "text", productOptions)}
-              {field("Merek", "brand", "text", brandOptions)}
-              {field("Jumlah barang", "quantity", "number", undefined, "Contoh: 12")}
-              {field(
-                "Harga kulakan satuan (Rp)",
-                "purchasePrice",
-                "number",
-                undefined,
-                "Contoh: 5.000"
-              )}
+            <div className="intake-field">
+              <label htmlFor="productCode" className="intake-label">
+                Kode Barang
+              </label>
+
+              <div className="intake-code-row">
+                <div className="intake-input-wrap intake-code-input-wrap">
+                  <span className="intake-input-icon">
+                    <Hash size={17} />
+                  </span>
+
+                  <input
+                    id="productCode"
+                    type="text"
+                    value={item.productCode}
+                    onChange={(e) => update("productCode", e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void checkProduct();
+                      }
+                    }}
+                    placeholder="Masukkan atau scan kode barang"
+                    className="intake-input"
+                    autoComplete="off"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={checkProduct}
+                  disabled={checking || !item.productCode.trim()}
+                  className="intake-btn intake-btn-primary intake-check-btn"
+                >
+                  {checking ? (
+                    <LoaderCircle size={17} className="intake-spin" />
+                  ) : (
+                    <Search size={17} />
+                  )}
+                  {checking ? "Mengecek..." : "Cek Barang"}
+                </button>
+              </div>
+
+              <p className="intake-field-hint">
+                Masukkan kode barang yang terdaftar di master produk, lalu tekan Cek Barang.
+              </p>
             </div>
 
-            <div
-              style={{
-                marginTop: 20,
-                padding: 13,
-                background: "#f3f8f4",
-                borderRadius: 10,
-                color: "#5e7063",
-                fontSize: 13,
-                lineHeight: 1.6,
-              }}
-            >
-              <strong style={{ color: "#315840" }}>Perlu diingat:</strong>{" "}
-              masukkan harga beli per satuan, bukan total seluruh barang.
-              Persentase keuntungan tidak diisi di halaman ini.
+            {selectedProduct && checkedCode === item.productCode.trim() && (
+              <div className="intake-product-preview">
+                <div className="intake-product-preview-top">
+                  <div className="intake-product-preview-icon">
+                    <PackageCheck size={23} />
+                  </div>
+
+                  <div className="intake-product-preview-title">
+                    <span className="intake-product-found">
+                      <Check size={13} />
+                      Barang ditemukan
+                    </span>
+                    <h3>{selectedProduct.name}</h3>
+                    <p>{selectedProduct.brand || "Tanpa merek"}</p>
+                  </div>
+
+                  <span className="intake-product-code">
+                    {selectedProduct.product_code}
+                  </span>
+                </div>
+
+                <div className="intake-product-preview-meta">
+                  <div>
+                    <Tag size={15} />
+                    <span>Data produk terdaftar</span>
+                  </div>
+                  <div>
+                    <Boxes size={15} />
+                    <span>Barang siap dicatat sebagai kulakan</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="intake-form-grid intake-form-grid-three">
+              <div className="intake-field">
+                <label htmlFor="date" className="intake-label">
+                  Tanggal Kulakan
+                </label>
+
+                <div className="intake-input-wrap">
+                  <span className="intake-input-icon">
+                    <CalendarDays size={17} />
+                  </span>
+
+                  <input
+                    id="date"
+                    type="date"
+                    value={item.date}
+                    onChange={(e) => update("date", e.target.value)}
+                    required
+                    className="intake-input"
+                  />
+                </div>
+              </div>
+
+              <div className="intake-field">
+                <label htmlFor="quantity" className="intake-label">
+                  Jumlah Barang
+                </label>
+
+                <div className="intake-input-wrap">
+                  <span className="intake-input-icon">
+                    <Boxes size={17} />
+                  </span>
+
+                  <input
+                    id="quantity"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={item.quantity}
+                    onChange={(e) => update("quantity", e.target.value)}
+                    placeholder="Contoh: 12"
+                    required
+                    className="intake-input"
+                  />
+                </div>
+              </div>
+
+              <div className="intake-field">
+                <label htmlFor="purchasePrice" className="intake-label">
+                  Harga Kulakan Satuan
+                </label>
+
+                <div className="intake-input-wrap">
+                  <span className="intake-input-icon">
+                    <Wallet size={17} />
+                  </span>
+
+                  <input
+                    id="purchasePrice"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={item.purchasePrice}
+                    onChange={(e) => update("purchasePrice", e.target.value)}
+                    placeholder="Contoh: 5000"
+                    required
+                    className="intake-input"
+                  />
+                </div>
+              </div>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-                flexWrap: "wrap",
-                marginTop: 20,
-              }}
-            >
-              <button type="submit" style={primaryButton}>
-                {editingIndex !== null ? "✓ Perbarui Barang" : "+ Tambah ke Daftar"}
-              </button>
+            <div className="intake-note">
+              <div className="intake-note-icon">
+                <Wallet size={17} />
+              </div>
 
+              <div>
+                <strong>Perhatikan harga satuan</strong>
+                <p>
+                  Masukkan harga beli untuk satu unit barang, bukan total seluruh barang yang dibeli.
+                </p>
+              </div>
+            </div>
+
+            <div className="intake-form-actions">
               {editingIndex !== null && (
                 <button
                   type="button"
                   onClick={cancelEdit}
-                  style={{
-                    ...primaryButton,
-                    background: "#eef2ee",
-                    color: "#405347",
-                  }}
+                  className="intake-btn intake-btn-secondary"
                 >
+                  <X size={17} />
                   Batal Edit
                 </button>
               )}
+
+              <button
+                type="submit"
+                disabled={!selectedProduct || checkedCode !== item.productCode.trim()}
+                className="intake-btn intake-btn-primary"
+              >
+                {editingIndex !== null ? (
+                  <>
+                    <Save size={17} />
+                    Perbarui Barang
+                  </>
+                ) : (
+                  <>
+                    <Plus size={18} />
+                    Tambah ke Daftar
+                  </>
+                )}
+              </button>
             </div>
           </form>
         </section>
 
-        <section style={{ ...cardStyle, marginTop: 22 }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              gap: 16,
-              flexWrap: "wrap",
-              marginBottom: 20,
-            }}
-          >
-            <div>
-              <h2 style={{ margin: "0 0 6px", fontSize: 19 }}>
-                Daftar Kulakan
-              </h2>
-              <p style={{ margin: 0, color: "#77847a", fontSize: 13 }}>
-                Periksa barang sebelum menyimpannya ke database.
-              </p>
+        <section className="intake-card intake-list-card">
+          <div className="intake-section-heading intake-list-heading">
+            <div className="intake-section-icon">
+              <Receipt size={20} />
             </div>
 
-            <span
-              style={{
-                borderRadius: 30,
-                padding: "7px 12px",
-                background: "#e5f3e9",
-                color: "#176b45",
-                fontSize: 13,
-                fontWeight: 750,
-              }}
-            >
+            <div>
+              <h2>Daftar Kulakan</h2>
+              <p>Periksa kembali barang sebelum disimpan.</p>
+            </div>
+
+            <span className="intake-count">
+              <Package size={14} />
               {items.length} barang
             </span>
           </div>
 
           {items.length === 0 ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "38px 16px",
-                border: "1px dashed #d6e1d8",
-                borderRadius: 12,
-                background: "#fafcf9",
-              }}
-            >
-              <div style={{ fontSize: 32, marginBottom: 10 }}>🧾</div>
-              <p style={{ margin: "0 0 6px", fontWeight: 700 }}>
-                Belum ada barang kulakan
-              </p>
-              <p style={{ margin: 0, color: "#7a877e", fontSize: 13 }}>
-                Isi formulir di atas, kemudian klik Tambah ke Daftar.
+            <div className="intake-empty">
+              <div className="intake-empty-icon">
+                <PackageCheck size={31} strokeWidth={1.5} />
+              </div>
+
+              <h3>Belum ada barang kulakan</h3>
+              <p>
+                Barang yang berhasil dicek dan ditambahkan akan muncul di sini.
               </p>
             </div>
           ) : (
             <>
-              <div style={{ overflowX: "auto", width: "100%" }}>
-                <table
-                  style={{
-                    width: "100%",
-                    minWidth: 760,
-                    borderCollapse: "collapse",
-                    fontSize: 13,
-                  }}
-                >
+              <div className="intake-table-wrap">
+                <table className="intake-table">
                   <thead>
-                    <tr style={{ background: "#f4f7f4" }}>
-                      {[
-                        "Tanggal",
-                        "Kategori",
-                        "Nama barang",
-                        "Merek",
-                        "Jumlah",
-                        "Harga satuan",
-                        "Total",
-                        "Aksi",
-                      ].map((title) => (
-                        <th
-                          key={title}
-                          style={{
-                            padding: "13px 12px",
-                            textAlign: "left",
-                            color: "#526458",
-                            fontWeight: 700,
-                            whiteSpace: "nowrap",
-                            borderBottom: "1px solid #e5ebe6",
-                          }}
-                        >
-                          {title}
-                        </th>
-                      ))}
+                    <tr>
+                      <th>Tanggal</th>
+                      <th>Kode Barang</th>
+                      <th>Nama Barang</th>
+                      <th>Merek</th>
+                      <th>Jumlah</th>
+                      <th>Harga Satuan</th>
+                      <th>Total</th>
+                      <th>Aksi</th>
                     </tr>
                   </thead>
+
                   <tbody>
                     {items.map((row, index) => (
                       <tr
-                        key={`${row.name}-${row.brand}-${index}`}
-                        style={{
-                          background:
-                            editingIndex === index ? "#f2f8f3" : "#fff",
-                        }}
+                        key={`${row.productId}-${index}`}
+                        className={
+                          editingIndex === index ? "intake-row-editing" : ""
+                        }
                       >
-                        <td style={{ padding: 12, borderBottom: "1px solid #edf1ed" }}>
-                          {row.date}
+                        <td className="intake-date-cell">
+                          {formatDate(row.date)}
                         </td>
-                        <td style={{ padding: 12, borderBottom: "1px solid #edf1ed" }}>
-                          {row.category}
+
+                        <td>
+                          <span className="intake-category">
+                            {row.productCode}
+                          </span>
                         </td>
-                        <td style={{ padding: 12, borderBottom: "1px solid #edf1ed", fontWeight: 650 }}>
-                          {row.name}
+
+                        <td className="intake-product-name">{row.name}</td>
+                        <td>{row.brand || "—"}</td>
+
+                        <td className="intake-quantity">
+                          {Number(row.quantity).toLocaleString("id-ID")} pcs
                         </td>
-                        <td style={{ padding: 12, borderBottom: "1px solid #edf1ed" }}>
-                          {row.brand}
-                        </td>
-                        <td style={{ padding: 12, borderBottom: "1px solid #edf1ed" }}>
-                          {Number(row.quantity).toLocaleString("id-ID")}
-                        </td>
-                        <td style={{ padding: 12, borderBottom: "1px solid #edf1ed", whiteSpace: "nowrap" }}>
+
+                        <td className="intake-money">
                           {rupiah(Number(row.purchasePrice))}
                         </td>
-                        <td style={{ padding: 12, borderBottom: "1px solid #edf1ed", whiteSpace: "nowrap", fontWeight: 650 }}>
+
+                        <td className="intake-total">
                           {rupiah(
                             Number(row.quantity) * Number(row.purchasePrice)
                           )}
                         </td>
-                        <td style={{ padding: 12, borderBottom: "1px solid #edf1ed" }}>
-                          <div style={{ display: "flex", gap: 6 }}>
+
+                        <td>
+                          <div className="intake-row-actions">
                             <button
                               type="button"
+                              className="intake-icon-btn intake-edit-btn"
                               onClick={() => editItem(index)}
                               disabled={saving}
-                              style={{
-                                padding: "7px 9px",
-                                borderRadius: 7,
-                                border: "1px solid #dce5de",
-                                background: "#fff",
-                                color: "#176b45",
-                                cursor: "pointer",
-                              }}
+                              title="Edit barang"
                             >
-                              Edit
+                              <Pencil size={15} />
                             </button>
+
                             <button
                               type="button"
+                              className="intake-icon-btn intake-delete-btn"
                               onClick={() => removeItem(index)}
                               disabled={saving}
-                              style={{
-                                padding: "7px 9px",
-                                borderRadius: 7,
-                                border: "1px solid #f2d8d5",
-                                background: "#fff7f6",
-                                color: "#a43b31",
-                                cursor: "pointer",
-                              }}
+                              title="Hapus barang"
                             >
-                              Hapus
+                              <Trash2 size={15} />
                             </button>
                           </div>
                         </td>
@@ -850,109 +786,78 @@ export default function KulakanPage() {
                 </table>
               </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
-                  gap: 12,
-                  marginTop: 18,
-                }}
-              >
-                <div
-                  style={{
-                    padding: 17,
-                    background: "#f5f8f5",
-                    borderRadius: 12,
-                  }}
-                >
-                  <p style={{ margin: "0 0 7px", color: "#718076", fontSize: 12 }}>
-                    Total jumlah barang
-                  </p>
-                  <p style={{ margin: 0, fontSize: 23, fontWeight: 750 }}>
-                    {totalQuantity.toLocaleString("id-ID")}{" "}
-                    <span style={{ fontSize: 13, fontWeight: 500 }}>unit</span>
-                  </p>
+              <div className="intake-summary-grid">
+                <div className="intake-summary">
+                  <div className="intake-summary-icon">
+                    <Boxes size={20} />
+                  </div>
+
+                  <div>
+                    <p>Total Jumlah Barang</p>
+                    <strong>
+                      {totalQuantity.toLocaleString("id-ID")}
+                      <small> unit</small>
+                    </strong>
+                  </div>
                 </div>
 
-                <div
-                  style={{
-                    padding: 17,
-                    background: "#eaf5ed",
-                    borderRadius: 12,
-                  }}
-                >
-                  <p style={{ margin: "0 0 7px", color: "#477357", fontSize: 12 }}>
-                    Total nilai kulakan
-                  </p>
-                  <p style={{ margin: 0, fontSize: 23, fontWeight: 750, color: "#176b45" }}>
-                    {rupiah(totalValue)}
-                  </p>
+                <div className="intake-summary intake-summary-value">
+                  <div className="intake-summary-icon">
+                    <Wallet size={20} />
+                  </div>
+
+                  <div>
+                    <p>Total Nilai Kulakan</p>
+                    <strong>{rupiah(totalValue)}</strong>
+                  </div>
                 </div>
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: 14,
-                  flexWrap: "wrap",
-                  marginTop: 22,
-                  paddingTop: 20,
-                  borderTop: "1px solid #e8eee9",
-                }}
-              >
-                <p
-                  style={{
-                    margin: 0,
-                    maxWidth: 460,
-                    color: "#758177",
-                    fontSize: 12,
-                    lineHeight: 1.7,
-                  }}
-                >
-                  Pastikan jumlah dan harga benar. Setelah tersimpan, kulakan
-                  menunggu persetujuan harga dari admin.
-                </p>
+              <div className="intake-save-area">
+                <div className="intake-save-info">
+                  <div className="intake-save-info-icon">
+                    <AlertCircle size={17} />
+                  </div>
+
+                  <p>
+                    Setelah disimpan, data kulakan menunggu persetujuan harga admin sebelum stok dapat digunakan untuk transaksi.
+                  </p>
+                </div>
 
                 <button
                   type="button"
                   onClick={saveItems}
-                  disabled={items.length === 0 || saving || editingIndex !== null}
-                  style={{
-                    ...primaryButton,
-                    padding: "14px 22px",
-                    opacity:
-                      items.length === 0 || saving || editingIndex !== null
-                        ? 0.55
-                        : 1,
-                    cursor:
-                      items.length === 0 || saving || editingIndex !== null
-                        ? "not-allowed"
-                        : "pointer",
-                  }}
+                  disabled={
+                    items.length === 0 ||
+                    saving ||
+                    editingIndex !== null
+                  }
+                  className="intake-btn intake-btn-primary intake-save-btn"
                 >
-                  {saving
-                    ? "Menyimpan kulakan..."
-                    : editingIndex !== null
-                      ? "Selesaikan edit dahulu"
-                      : `Simpan ${items.length} Barang`}
+                  {saving ? (
+                    <>
+                      <LoaderCircle size={18} className="intake-spin" />
+                      Menyimpan...
+                    </>
+                  ) : editingIndex !== null ? (
+                    "Selesaikan Edit Dahulu"
+                  ) : (
+                    <>
+                      <Save size={18} />
+                      Simpan {items.length} Barang
+                    </>
+                  )}
                 </button>
               </div>
             </>
           )}
         </section>
 
-        <p
-          style={{
-            margin: "18px 4px 0",
-            color: "#849087",
-            textAlign: "center",
-            fontSize: 12,
-          }}
-        >
-          Toko Rosyidah · Sistem pengelolaan kulakan dan persetujuan harga
-        </p>
+        <footer className="intake-footer">
+          <span>TOKO ROSYIDAH</span>
+          <span className="intake-footer-dot">·</span>
+          Sistem Pengelolaan Kulakan & Persetujuan Harga
+        </footer>
       </div>
     </main>
   );

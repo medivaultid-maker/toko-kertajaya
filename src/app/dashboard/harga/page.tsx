@@ -1,8 +1,29 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
+import {
+  ArrowLeft,
+  RefreshCw,
+  Package,
+  Clock3,
+  Boxes,
+  Wallet,
+  Search,
+  CheckCircle2,
+  AlertCircle,
+  X,
+  CalendarDays,
+  TrendingUp,
+  Calculator,
+  BadgeCheck,
+  LoaderCircle,
+  Sparkles,
+  Tag,
+  Receipt,
+  ShieldCheck,
+} from "lucide-react";
 
 type Intake = {
   id: string;
@@ -19,14 +40,6 @@ type Product = {
   brand: string;
 };
 
-type Notice = {
-  id: string;
-  title: string;
-  message: string;
-  is_read: boolean;
-  created_at: string;
-};
-
 const rupiah = (value: number) =>
   new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -34,113 +47,121 @@ const rupiah = (value: number) =>
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
 
+const dateFormat = (value: string) =>
+  new Date(`${value.slice(0, 10)}T00:00:00`).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
 export default function HargaPage() {
   const [supabase] = useState(() => createClient());
+
   const [intakes, setIntakes] = useState<Intake[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [notices, setNotices] = useState<Notice[]>([]);
   const [percentages, setPercentages] = useState<Record<string, string>>({});
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
+ 
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const productMap = useMemo(
+    () => new Map(products.map((product) => [product.id, product])),
+    [products]
+  );
 
-    try {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
+const displayedIntakes = intakes;
 
-      if (authError) {
-        throw new Error(`Gagal memeriksa sesi: ${authError.message}`);
-      }
+  const totalUnits = intakes.reduce(
+    (total, item) => total + Number(item.quantity_received || 0),
+    0
+  );
 
-      if (!user) {
-        window.location.replace("/login");
-        return;
-      }
+  const totalCapital = intakes.reduce(
+    (total, item) =>
+      total +
+      Number(item.quantity_received || 0) *
+        Number(item.purchase_price || 0),
+    0
+  );
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role, is_active")
-        .eq("id", user.id)
-        .maybeSingle();
+  const loadData = useCallback(
+    async (showLoading = true) => {
+      if (showLoading) setLoading(true);
 
-      if (profileError) {
-        throw new Error(`Gagal membaca profil: ${profileError.message}`);
-      }
+      setError("");
 
-      if (!profile) {
-        setIsAdmin(false);
-        throw new Error(
-          `Profil tidak ditemukan untuk akun login: ${user.id}`
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError) throw new Error(authError.message);
+
+        if (!user) {
+          window.location.replace("/login");
+          return;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("role, is_active")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (profileError) throw new Error(profileError.message);
+
+        if (!profile) {
+          setIsAdmin(false);
+          throw new Error("Profil admin tidak ditemukan.");
+        }
+
+        if (profile.role !== "admin" || profile.is_active !== true) {
+          setIsAdmin(false);
+          throw new Error("Akses hanya untuk admin aktif.");
+        }
+
+        setIsAdmin(true);
+
+        const [intakesResult, productsResult] = await Promise.all([
+          supabase
+            .from("purchase_intakes")
+            .select(
+              "id,product_id,purchase_date,quantity_received,purchase_price,created_at"
+            )
+            .eq("status", "pending_price")
+            .order("created_at", { ascending: true }),
+
+          supabase.from("products").select("id,name,brand"),
+        ]);
+
+        if (intakesResult.error) {
+          throw new Error(intakesResult.error.message);
+        }
+
+        if (productsResult.error) {
+          throw new Error(productsResult.error.message);
+        }
+
+        setIntakes((intakesResult.data || []) as Intake[]);
+        setProducts((productsResult.data || []) as Product[]);
+      } catch (e) {
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Terjadi kesalahan saat memuat data."
         );
+      } finally {
+        if (showLoading) setLoading(false);
       }
-
-      if (profile.role !== "admin" || profile.is_active !== true) {
-        setIsAdmin(false);
-        throw new Error(
-          `Akses admin ditolak. Role: ${profile.role}; aktif: ${String(profile.is_active)}`
-        );
-      }
-
-      setIsAdmin(true);
-
-      const [
-        intakesResult,
-        productsResult,
-        noticesResult,
-      ] = await Promise.all([
-        supabase
-          .from("purchase_intakes")
-          .select(
-            "id,product_id,purchase_date,quantity_received,purchase_price,created_at"
-          )
-          .eq("status", "pending_price")
-          .order("created_at", { ascending: true }),
-
-        supabase
-          .from("products")
-          .select("id,name,brand"),
-
-        supabase
-          .from("notifications")
-          .select("id,title,message,is_read,created_at")
-          .eq("recipient_role", "admin")
-          .order("created_at", { ascending: false })
-          .limit(50),
-      ]);
-
-      if (intakesResult.error) {
-        throw new Error(`Gagal memuat kulakan: ${intakesResult.error.message}`);
-      }
-
-      if (productsResult.error) {
-        throw new Error(`Gagal memuat barang: ${productsResult.error.message}`);
-      }
-
-      if (noticesResult.error) {
-        throw new Error(
-          `Gagal memuat notifikasi: ${noticesResult.error.message}`
-        );
-      }
-
-      setIntakes((intakesResult.data || []) as Intake[]);
-      setProducts((productsResult.data || []) as Product[]);
-      setNotices((noticesResult.data || []) as Notice[]);
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Terjadi kesalahan saat memuat data."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [supabase]);
+    },
+    [supabase]
+  );
 
   useEffect(() => {
     void loadData();
@@ -149,8 +170,8 @@ export default function HargaPage() {
   async function approve(intake: Intake) {
     const rawPercentage = percentages[intake.id];
 
-    if (rawPercentage === undefined || rawPercentage.trim() === "") {
-      setError("Masukkan persentase markup terlebih dahulu.");
+    if (!rawPercentage || rawPercentage.trim() === "") {
+      setError("Masukkan persentase keuntungan terlebih dahulu.");
       return;
     }
 
@@ -161,7 +182,7 @@ export default function HargaPage() {
       percentage < 0 ||
       percentage > 1000
     ) {
-      setError("Markup harus antara 0 sampai 1000 persen.");
+      setError("Persentase harus antara 0 sampai 1000%.");
       return;
     }
 
@@ -185,7 +206,9 @@ export default function HargaPage() {
       }
 
       setMessage(
-        `Harga berhasil disetujui. Harga jual: ${rupiah(Number(data.selling_price))}`
+        `Harga berhasil disetujui. Harga jual: ${rupiah(
+          Number(data.selling_price)
+        )}`
       );
 
       setPercentages((old) => {
@@ -194,7 +217,7 @@ export default function HargaPage() {
         return next;
       });
 
-      await loadData();
+      await loadData(false);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Gagal menyetujui harga."
@@ -206,218 +229,381 @@ export default function HargaPage() {
 
   if (loading) {
     return (
-      <main style={{ padding: 24 }}>
-        <p>Memeriksa akses admin dan memuat data...</p>
+      <main className="price-loading">
+        <div className="price-loading-icon">
+          <LoaderCircle size={27} className="price-spin" />
+        </div>
+        <p>Menyiapkan persetujuan harga...</p>
+        <span>Mohon tunggu sebentar</span>
       </main>
     );
   }
 
   if (!isAdmin) {
     return (
-      <main style={{ padding: 24 }}>
-        <h1>Akses ditolak</h1>
-        <p>{error || "Halaman ini hanya untuk admin aktif."}</p>
-        <button onClick={() => void loadData()}>
-          Coba lagi
-        </button>{" "}
-        <a href="/dashboard">Kembali ke dashboard</a>
+      <main className="price-denied">
+        <div className="price-denied-card">
+          <div className="price-denied-icon">
+            <ShieldCheck size={28} />
+          </div>
+          <h1>Akses dibatasi</h1>
+          <p>{error || "Halaman ini hanya untuk admin aktif."}</p>
+          <button
+            className="price-button price-button-primary"
+            onClick={() => void loadData()}
+          >
+            <RefreshCw size={16} />
+            Coba lagi
+          </button>
+          <a href="/dashboard" className="price-back-link">
+            <ArrowLeft size={15} />
+            Kembali ke dashboard
+          </a>
+        </div>
       </main>
     );
   }
 
   return (
-    <main
-      style={{
-        maxWidth: 1100,
-        margin: "0 auto",
-        padding: 24,
-        color: "#17211b",
-      }}
-    >
-      <a href="/dashboard">← Kembali ke dashboard</a>
+    <main className="price-page">
+      <div className="price-container">
+        <a href="/dashboard" className="price-back-link">
+          <ArrowLeft size={16} />
+          Kembali ke Dashboard
+        </a>
 
-      <h1 style={{ marginBottom: 4 }}>Persetujuan Harga</h1>
-      <p>TOKO ROSYIDAH — Pasar Sebaung</p>
-      <p>Persentase keuntungan ditetapkan per barang berdasarkan harga kulakan.</p>
+        {/* HEADER */}
+        <header className="price-header">
+          <div className="price-header-content">
+            <div className="price-eyebrow">
+              <Sparkles size={13} />
+              TOKO ROSYIDAH · ADMINISTRATION
+            </div>
 
-      {error && (
-        <p
-          role="alert"
-          style={{
-            padding: 12,
-            background: "#fff0f0",
-            color: "#b42318",
-            borderRadius: 8,
-          }}
-        >
-          {error}
-        </p>
-      )}
+            <h1>Persetujuan Harga</h1>
 
-      {message && (
-        <p
-          role="status"
-          style={{
-            padding: 12,
-            background: "#edf7ef",
-            color: "#176b45",
-            borderRadius: 8,
-          }}
-        >
-          {message}
-        </p>
-      )}
+            <p>
+              Tetapkan keuntungan dan kelola harga jual setiap barang
+              kulakan.
+            </p>
+          </div>
 
-      <button
-        type="button"
-        onClick={() => void loadData()}
-        disabled={loading}
-        style={{
-          padding: "9px 14px",
-          border: "1px solid #ccc",
-          borderRadius: 8,
-          background: "white",
-        }}
-      >
-        Muat ulang data
-      </button>
+          <button
+            type="button"
+            className="price-button price-button-outline"
+            onClick={() => void loadData()}
+            disabled={loading}
+          >
+            <RefreshCw size={16} />
+            Muat Ulang
+          </button>
+        </header>
 
-      <h2>Menunggu Persetujuan ({intakes.length})</h2>
-
-      {intakes.length === 0 ? (
-        <p>Tidak ada kulakan yang menunggu persetujuan harga.</p>
-      ) : (
-        <div style={{ display: "grid", gap: 16 }}>
-          {intakes.map((intake) => {
-            const product = products.find(
-              (p) => p.id === intake.product_id
-            );
-
-            const rawPercentage = percentages[intake.id] ?? "";
-            const percentage = Number(rawPercentage);
-
-            const hasPercentage =
-              rawPercentage.trim() !== "" &&
-              Number.isFinite(percentage) &&
-              percentage >= 0 &&
-              percentage <= 1000;
-
-            const estimatedPrice = hasPercentage
-              ? Math.round(
-                  Number(intake.purchase_price) *
-                    (1 + percentage / 100)
-                )
-              : null;
-
-            return (
-              <article
-                key={intake.id}
-                style={{
-                  background: "white",
-                  padding: 20,
-                  border: "1px solid #e1e8e3",
-                  borderRadius: 12,
-                }}
-              >
-                <h3>
-                  {product?.name || "Barang"} — {product?.brand || "-"}
-                </h3>
-
-                <p>Tanggal kulakan: {intake.purchase_date}</p>
-                <p>Jumlah: {intake.quantity_received}</p>
-                <p>
-                  Harga kulakan per unit:{" "}
-                  <strong>{rupiah(intake.purchase_price)}</strong>
-                </p>
-
-                <label
-                  htmlFor={`percent-${intake.id}`}
-                  style={{ display: "block", marginBottom: 6 }}
-                >
-                  Persentase markup (%)
-                </label>
-
-                <input
-                  id={`percent-${intake.id}`}
-                  type="number"
-                  min="0"
-                  max="1000"
-                  step="0.1"
-                  placeholder="Contoh: 20"
-                  value={rawPercentage}
-                  onChange={(e) =>
-                    setPercentages((old) => ({
-                      ...old,
-                      [intake.id]: e.target.value,
-                    }))
-                  }
-                  style={{
-                    padding: 10,
-                    width: 180,
-                    border: "1px solid #ccc",
-                    borderRadius: 8,
-                  }}
-                />
-
-                <p>
-                  Perkiraan harga jual:{" "}
-                  <strong>
-                    {estimatedPrice === null
-                      ? "Masukkan persentase"
-                      : rupiah(estimatedPrice)}
-                  </strong>
-                </p>
-
-                <button
-                  type="button"
-                  disabled={busyId !== "" || !hasPercentage}
-                  onClick={() => void approve(intake)}
-                  style={{
-                    padding: "11px 18px",
-                    border: 0,
-                    borderRadius: 8,
-                    background: "#176b45",
-                    color: "white",
-                    cursor: "pointer",
-                    opacity:
-                      busyId !== "" || !hasPercentage ? 0.6 : 1,
-                  }}
-                >
-                  {busyId === intake.id
-                    ? "Memproses..."
-                    : "Setujui Harga"}
-                </button>
-              </article>
-            );
-          })}
-        </div>
-      )}
-
-      <h2 style={{ marginTop: 36 }}>Notifikasi Admin</h2>
-
-      {notices.length === 0 ? (
-        <p>Belum ada notifikasi.</p>
-      ) : (
-        <div style={{ display: "grid", gap: 10 }}>
-          {notices.map((notice) => (
-            <article
-              key={notice.id}
-              style={{
-                padding: 14,
-                border: "1px solid #e1e8e3",
-                borderRadius: 10,
-                background: notice.is_read ? "white" : "#edf7ef",
-              }}
+        {/* ALERTS */}
+        {error && (
+          <div className="price-alert price-alert-error" role="alert">
+            <AlertCircle size={19} />
+            <div>
+              <strong>Terjadi kendala</strong>
+              <p>{error}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setError("")}
+              aria-label="Tutup"
             >
-              <strong>{notice.title}</strong>
-              <p>{notice.message}</p>
-              <small>
-                {new Date(notice.created_at).toLocaleString("id-ID")}
-              </small>
-            </article>
-          ))}
-        </div>
-      )}
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
+        {message && (
+          <div className="price-alert price-alert-success" role="status">
+            <CheckCircle2 size={19} />
+            <div>
+              <strong>Berhasil</strong>
+              <p>{message}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMessage("")}
+              aria-label="Tutup"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* SUMMARY */}
+        <section className="price-summary-grid">
+          <article className="price-summary-card">
+            <div className="price-summary-top">
+              <span>Menunggu Persetujuan</span>
+              <div className="price-summary-icon price-icon-emerald">
+                <Clock3 size={20} />
+              </div>
+            </div>
+            <strong>{intakes.length.toLocaleString("id-ID")}</strong>
+            <small>Data kulakan menunggu</small>
+          </article>
+
+          <article className="price-summary-card">
+            <div className="price-summary-top">
+              <span>Total Unit Kulakan</span>
+              <div className="price-summary-icon price-icon-gold">
+                <Boxes size={20} />
+              </div>
+            </div>
+            <strong>{totalUnits.toLocaleString("id-ID")}</strong>
+            <small>Unit barang masuk</small>
+          </article>
+
+          <article className="price-summary-card price-summary-capital">
+            <div className="price-summary-top">
+              <span>Total Modal Kulakan</span>
+              <div className="price-summary-icon price-icon-ivory">
+                <Wallet size={20} />
+              </div>
+            </div>
+            <strong>{rupiah(totalCapital)}</strong>
+            <small>Akumulasi nilai pembelian</small>
+          </article>
+        </section>
+
+        {/* PENDING LIST */}
+        <section className="price-section">
+          <div className="price-section-heading">
+            <div>
+              <div className="price-section-eyebrow">
+                <Receipt size={13} />
+                PRICE MANAGEMENT
+              </div>
+              <h2>Barang Menunggu Harga</h2>
+              <p>
+                Tentukan persentase keuntungan untuk setiap barang secara
+                individual.
+              </p>
+            </div>
+
+            <span className="price-pending-count">
+              <span />
+              {intakes.length} menunggu
+            </span>
+          </div>
+
+
+          {/* EMPTY */}
+          {intakes.length === 0 ? (
+            <div className="price-empty">
+              <div className="price-empty-icon">
+                <BadgeCheck size={32} />
+              </div>
+              <h3>Semua harga sudah ditetapkan</h3>
+              <p>
+                Belum ada barang kulakan yang menunggu persetujuan harga.
+              </p>
+            </div>
+          ) : displayedIntakes.length === 0 ? (
+            <div className="price-empty price-empty-small">
+              <Search size={26} />
+              <h3>Barang tidak ditemukan</h3>
+              <p>Coba gunakan kata kunci nama barang atau merek lainnya.</p>
+            </div>
+          ) : (
+            <div className="price-list">
+              {displayedIntakes.map((intake) => {
+                const product = productMap.get(intake.product_id);
+                const rawPercentage = percentages[intake.id] ?? "";
+                const percentage = Number(rawPercentage);
+
+                const hasPercentage =
+                  rawPercentage.trim() !== "" &&
+                  Number.isFinite(percentage) &&
+                  percentage >= 0 &&
+                  percentage <= 1000;
+
+                const purchasePrice = Number(intake.purchase_price || 0);
+                const quantity = Number(intake.quantity_received || 0);
+
+                const estimatedPrice = hasPercentage
+                  ? Math.round(
+                      purchasePrice * (1 + percentage / 100)
+                    )
+                  : null;
+
+                const profit =
+                  estimatedPrice !== null
+                    ? estimatedPrice - purchasePrice
+                    : null;
+
+                const isBusy = busyId === intake.id;
+
+                return (
+                  <article className="price-item-card" key={intake.id}>
+                    {/* PRODUCT TITLE */}
+                    <div className="price-item-header">
+                      <div className="price-item-identity">
+                        <div className="price-product-icon">
+                          <Package size={22} />
+                        </div>
+                        <div>
+                          <span className="price-item-overline">
+                            DETAIL BARANG KULAKAN
+                          </span>
+                          <h3>{product?.name || "Barang tidak ditemukan"}</h3>
+                          <p>
+                            <Tag size={13} />
+                            {product?.brand || "Merek tidak tersedia"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span className="price-status">
+                        <span />
+                        Menunggu harga
+                      </span>
+                    </div>
+
+                    {/* PURCHASE DETAILS */}
+                    <div className="price-detail-grid">
+                      <div className="price-detail">
+                        <span>Harga kulakan / unit</span>
+                        <strong>{rupiah(purchasePrice)}</strong>
+                      </div>
+
+                      <div className="price-detail">
+                        <span>Jumlah kulakan</span>
+                        <strong>{quantity.toLocaleString("id-ID")} unit</strong>
+                      </div>
+
+                      <div className="price-detail">
+                        <span>Tanggal kulakan</span>
+                        <strong>
+                          <CalendarDays size={14} />
+                          {dateFormat(intake.purchase_date)}
+                        </strong>
+                      </div>
+
+                      <div className="price-detail">
+                        <span>Total modal barang</span>
+                        <strong className="price-detail-total">
+                          {rupiah(purchasePrice * quantity)}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* PRICE SETTING */}
+                    <div className="price-setting-grid">
+                      <div className="price-markup-panel">
+                        <div className="price-panel-heading">
+                          <div className="price-panel-icon">
+                            <TrendingUp size={18} />
+                          </div>
+                          <div>
+                            <h4>Tentukan Keuntungan</h4>
+                            <p>Markup berdasarkan harga kulakan terbaru.</p>
+                          </div>
+                        </div>
+
+                        <label htmlFor={`percent-${intake.id}`}>
+                          Persentase keuntungan
+                        </label>
+
+                        <div className="price-percent-input">
+                          <input
+                            id={`percent-${intake.id}`}
+                            type="number"
+                            min="0"
+                            max="1000"
+                            step="0.1"
+                            placeholder="Contoh: 20"
+                            value={rawPercentage}
+                            onChange={(e) =>
+                              setPercentages((old) => ({
+                                ...old,
+                                [intake.id]: e.target.value,
+                              }))
+                            }
+                          />
+                          <span>%</span>
+                        </div>
+
+                        <small>
+                          Persentase keuntungan ditentukan untuk barang ini.
+                        </small>
+                      </div>
+
+                      {/* PRICE PREVIEW */}
+                      <div className="price-preview-panel">
+                        <div className="price-preview-heading">
+                          <Calculator size={17} />
+                          ESTIMASI HARGA JUAL / UNIT
+                        </div>
+
+                        <strong className="price-preview-value">
+                          {estimatedPrice === null
+                            ? "Rp —"
+                            : rupiah(estimatedPrice)}
+                        </strong>
+
+                        <div className="price-preview-divider" />
+
+                        <div className="price-preview-profit">
+                          <span>Keuntungan per unit</span>
+                          <strong>
+                            {profit === null ? "—" : rupiah(profit)}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ACTION */}
+                    <div className="price-item-footer">
+                      <div className="price-item-note">
+                        <AlertCircle size={15} />
+                        Harga jual akan diterapkan setelah disetujui.
+                      </div>
+
+                      <button
+                        type="button"
+                        className="price-button price-approve-button"
+                        disabled={
+                          busyId !== "" ||
+                          !hasPercentage ||
+                          purchasePrice <= 0 ||
+                          !product
+                        }
+                        onClick={() => void approve(intake)}
+                      >
+                        {isBusy ? (
+                          <>
+                            <LoaderCircle
+                              size={17}
+                              className="price-spin"
+                            />
+                            Memproses...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 size={17} />
+                            Setujui Harga
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <footer className="price-footer">
+          <span>TOKO ROSYIDAH</span>
+          <span>·</span>
+          Manajemen Persetujuan Harga
+        </footer>
+      </div>
     </main>
   );
 }

@@ -1,11 +1,35 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
+import {
+  ArrowLeft,
+  Receipt,
+  Search,
+  Package,
+  PackageCheck,
+  ShoppingCart,
+  Trash2,
+  Plus,
+  Minus,
+  Wallet,
+  CreditCard,
+  Banknote,
+  CheckCircle2,
+  AlertCircle,
+  LoaderCircle,
+  RefreshCw,
+  Tag,
+  CalendarDays,
+  Printer,
+  Sparkles,
+  X,
+} from "lucide-react";
 
 type Product = {
   id: string;
+  product_code: string;
   name: string;
   brand: string;
   current_selling_price: number;
@@ -34,98 +58,195 @@ type Receipt = {
   }[];
 };
 
+const rupiah = (value: number) =>
+  new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+
 export default function KasirPage() {
   const [supabase] = useState(() => createClient());
-  const [products, setProducts] = useState<Product[]>([]);
+
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [query, setQuery] = useState("");
+  const [code, setCode] = useState("");
+  const [foundProduct, setFoundProduct] = useState<Product | null>(null);
+
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [amountPaid, setAmountPaid] = useState("");
   const [discount, setDiscount] = useState("0");
+
   const [loading, setLoading] = useState(true);
+  const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState(false);
+
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [receipt, setReceipt] = useState<Receipt | null>(null);
 
-  const rupiah = (n: number) =>
-    `Rp${Number(n).toLocaleString("id-ID")}`;
+  const subtotal = useMemo(
+    () =>
+      cart.reduce(
+        (sum, item) =>
+          sum +
+          Number(item.product.current_selling_price) * item.quantity,
+        0
+      ),
+    [cart]
+  );
+
+  const total = Math.max(
+    0,
+    subtotal - Math.max(0, Number(discount) || 0)
+  );
+
+  const change = Math.max(0, Number(amountPaid || 0) - total);
 
   useEffect(() => {
-    async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
+    async function checkAccess() {
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
 
-      if (!user) {
-        window.location.replace("/login");
-        return;
-      }
+        if (authError) throw authError;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role,is_active")
-        .eq("id", user.id)
-        .maybeSingle();
+        if (!user) {
+          window.location.replace("/login");
+          return;
+        }
 
-      if (
-        !profile?.is_active ||
-        !["admin", "cashier"].includes(profile.role)
-      ) {
-        setError("Akses kasir hanya untuk admin atau kasir aktif.");
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("role,is_active")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (profileError) throw profileError;
+
+        if (
+          !profile?.is_active ||
+          !["admin", "cashier"].includes(profile.role)
+        ) {
+          setError("Akses kasir hanya untuk admin atau kasir aktif.");
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Gagal memeriksa akses pengguna."
+        );
+      } finally {
         setLoading(false);
-        return;
       }
-
-      const { data, error } = await supabase
-        .from("products")
-        .select("id,name,brand,current_selling_price,price_status,is_active")
-        .eq("is_active", true)
-        .eq("price_status", "approved")
-        .order("name");
-
-      if (error) setError(error.message);
-      else setProducts(data || []);
-
-      setLoading(false);
     }
 
-    void load();
+    void checkAccess();
   }, [supabase]);
 
-  const filtered = products.filter((p) =>
-    `${p.name} ${p.brand}`.toLowerCase().includes(query.toLowerCase())
-  );
+  async function checkProduct() {
+    const productCode = code.trim();
 
-  const subtotal = cart.reduce(
-    (sum, item) =>
-      sum + item.product.current_selling_price * item.quantity,
-    0
-  );
+    setError("");
+    setMessage("");
+    setFoundProduct(null);
+    setReceipt(null);
 
-  const total = Math.max(0, subtotal - Math.max(0, Number(discount) || 0));
+    if (!productCode) {
+      setError("Masukkan kode barang terlebih dahulu.");
+      return;
+    }
+
+    setChecking(true);
+
+    try {
+      const { data, error: queryError } = await supabase
+        .from("products")
+        .select(
+          "id,product_code,name,brand,current_selling_price,price_status,is_active"
+        )
+        .eq("product_code", productCode)
+        .maybeSingle();
+
+      if (queryError) throw queryError;
+
+      if (!data) {
+        setError(`Barang dengan kode ${productCode} tidak ditemukan.`);
+        return;
+      }
+
+      if (!data.is_active) {
+        setError("Barang ini sedang tidak aktif.");
+        return;
+      }
+
+      if (data.price_status !== "approved") {
+        setError("Harga barang ini belum disetujui oleh admin.");
+        return;
+      }
+
+      if (
+        data.current_selling_price === null ||
+        Number(data.current_selling_price) <= 0
+      ) {
+        setError("Harga jual barang belum tersedia.");
+        return;
+      }
+
+      setFoundProduct(data as Product);
+      setMessage("Barang berhasil ditemukan.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal memeriksa kode barang."
+      );
+    } finally {
+      setChecking(false);
+    }
+  }
 
   function addProduct(product: Product) {
     setReceipt(null);
+    setError("");
+    setMessage(`${product.name} berhasil ditambahkan ke keranjang.`);
+
     setCart((old) => {
-      const existing = old.find((i) => i.product.id === product.id);
+      const existing = old.find(
+        (item) => item.product.id === product.id
+      );
 
       if (existing) {
-        return old.map((i) =>
-          i.product.id === product.id
-            ? { ...i, quantity: i.quantity + 1 }
-            : i
+        return old.map((item) =>
+          item.product.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
         );
       }
 
       return [...old, { product, quantity: 1 }];
     });
+
+    setFoundProduct(null);
+    setCode("");
   }
 
   function changeQuantity(productId: string, quantity: number) {
     setCart((old) =>
       old
-        .map((i) =>
-          i.product.id === productId ? { ...i, quantity } : i
+        .map((item) =>
+          item.product.id === productId
+            ? { ...item, quantity }
+            : item
         )
-        .filter((i) => i.quantity > 0)
+        .filter((item) => item.quantity > 0)
+    );
+  }
+
+  function removeProduct(productId: string) {
+    setCart((old) =>
+      old.filter((item) => item.product.id !== productId)
     );
   }
 
@@ -133,12 +254,13 @@ export default function KasirPage() {
     if (!cart.length || busy) return;
 
     setError("");
+    setMessage("");
 
     const paid = Number(amountPaid);
     const disc = Number(discount);
 
     if (!Number.isFinite(disc) || disc < 0 || disc > subtotal) {
-      setError("Diskon tidak valid.");
+      setError("Diskon tidak valid. Periksa kembali nominal diskon.");
       return;
     }
 
@@ -148,259 +270,554 @@ export default function KasirPage() {
     }
 
     if (paymentMethod === "cash" && paid < total) {
-      setError("Uang pembayaran kurang.");
+      setError("Uang pembayaran masih kurang.");
       return;
     }
 
     if (paymentMethod !== "cash" && paid !== total) {
-      setError("Pembayaran non-tunai harus sama dengan total.");
+      setError("Pembayaran non-tunai harus sama dengan total transaksi.");
       return;
     }
 
     setBusy(true);
 
-    const { data, error } = await supabase.rpc("checkout_sale", {
-      p_items: cart.map((i) => ({
-        product_id: i.product.id,
-        quantity: i.quantity,
-      })),
-      p_payment_method: paymentMethod,
-      p_amount_paid: paid,
-      p_discount: disc,
-    });
+    try {
+      const { data, error: checkoutError } = await supabase.rpc(
+        "checkout_sale",
+        {
+          p_items: cart.map((item) => ({
+            product_id: item.product.id,
+            quantity: item.quantity,
+          })),
+          p_payment_method: paymentMethod,
+          p_amount_paid: paid,
+          p_discount: disc,
+        }
+      );
 
-    if (error) {
-      setError(error.message);
-    } else {
+      if (checkoutError) throw checkoutError;
+
+      if (!data) {
+        throw new Error("Transaksi tidak menghasilkan data struk.");
+      }
+
       setReceipt(data as Receipt);
       setCart([]);
       setAmountPaid("");
       setDiscount("0");
-      setQuery("");
+      setCode("");
+      setFoundProduct(null);
+      setMessage("Transaksi berhasil diselesaikan.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Transaksi gagal diproses."
+      );
+    } finally {
+      setBusy(false);
     }
-
-    setBusy(false);
   }
 
   if (loading) {
-    return <main style={{ padding: 24 }}>Memuat kasir...</main>;
+    return (
+      <main className="cashier-loading">
+        <LoaderCircle className="cashier-spin" size={28} />
+        <p>Menyiapkan halaman kasir...</p>
+      </main>
+    );
+  }
+
+  if (error === "Akses kasir hanya untuk admin atau kasir aktif.") {
+    return (
+      <main className="cashier-denied">
+        <div className="cashier-denied-icon">
+          <AlertCircle size={28} />
+        </div>
+        <h1>Akses Ditolak</h1>
+        <p>{error}</p>
+        <a href="/dashboard">Kembali ke Dashboard</a>
+      </main>
+    );
   }
 
   return (
-    <main style={{ maxWidth: 1200, margin: "0 auto", padding: 24 }}>
-      <a href="/dashboard">← Kembali ke dashboard</a>
-      <h1>Kasir — TOKO ROSYIDAH</h1>
-      <p>Alamat: Pasar Sebaung</p>
+    <main className="cashier-page">
+      <div className="cashier-container">
+        <nav className="cashier-navigation">
+          <a href="/dashboard" className="cashier-nav-link">
+            <ArrowLeft size={16} />
+            Dashboard
+          </a>
 
-      {error && <p role="alert" style={{ color: "#b42318" }}>{error}</p>}
+          <a
+            href="/dashboard/riwayat-penjualan"
+            className="cashier-nav-link cashier-history-link"
+          >
+            <Receipt size={16} />
+            Riwayat Penjualan
+          </a>
+        </nav>
 
-      {receipt && (
-        <section
-          id="receipt"
-          style={{
-            border: "1px dashed #777",
-            padding: 20,
-            maxWidth: 380,
-            marginBottom: 24,
-            background: "white",
-            color: "#111",
-          }}
-        >
-          <div style={{ textAlign: "center" }}>
-            <h2>TOKO ROSYIDAH</h2>
-            <p>Alamat: Pasar Sebaung</p>
-            <p>{receipt.receipt_number}</p>
+        <header className="cashier-header">
+          <div className="cashier-heading">
+            <div className="cashier-heading-icon">
+              <ShoppingCart size={27} />
+            </div>
+
+            <div>
+              <div className="cashier-eyebrow">
+                <Sparkles size={12} />
+                TOKO ROSYIDAH · PASAR SEBAUNG
+              </div>
+              <h1>Kasir</h1>
+              <p>Catat transaksi penjualan dengan cepat dan praktis.</p>
+            </div>
           </div>
 
-          <hr />
+          <div className="cashier-status">
+            <span className="cashier-status-dot" />
+            Kasir Aktif
+          </div>
+        </header>
 
-          {receipt.items.map((item, index) => (
-            <div key={index} style={{ margin: "12px 0" }}>
-              <div>{item.name} — {item.brand}</div>
-              <div>
-                {item.quantity} × {rupiah(item.selling_price)}
+        {(error || message) && (
+          <div
+            className={`cashier-alert ${
+              error ? "cashier-alert-error" : "cashier-alert-success"
+            }`}
+            role={error ? "alert" : "status"}
+          >
+            {error ? (
+              <AlertCircle size={19} />
+            ) : (
+              <CheckCircle2 size={19} />
+            )}
+            <p>{error || message}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setError("");
+                setMessage("");
+              }}
+              aria-label="Tutup notifikasi"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
+        <div className="cashier-layout">
+          <section className="cashier-main-column">
+            <div className="cashier-card cashier-product-card">
+              <div className="cashier-section-heading">
+                <div className="cashier-section-icon">
+                  <Package size={20} />
+                </div>
+                <div>
+                  <h2>Tambah Barang</h2>
+                  <p>Masukkan kode barang untuk memeriksa produk.</p>
+                </div>
               </div>
-              <div style={{ textAlign: "right" }}>
-                {rupiah(item.line_total)}
-              </div>
-            </div>
-          ))}
 
-          <hr />
-          <p>Subtotal: {rupiah(receipt.subtotal)}</p>
-          <p>Diskon: {rupiah(receipt.discount)}</p>
-          <h3>Total: {rupiah(receipt.total)}</h3>
-          <p>Dibayar: {rupiah(receipt.amount_paid)}</p>
-          <p>Kembalian: {rupiah(receipt.change_amount)}</p>
-          <p style={{ textAlign: "center" }}>Terima kasih telah berbelanja!</p>
-
-          <button type="button" onClick={() => window.print()}>
-            Cetak Struk / Simpan PDF
-          </button>
-        </section>
-      )}
-
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-        gap: 24,
-      }}>
-        <section>
-          <h2>Pilih Barang</h2>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cari nama barang atau merek..."
-            style={{ width: "100%", padding: 12, boxSizing: "border-box" }}
-          />
-
-          <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-            {filtered.map((product) => (
-              <button
-                key={product.id}
-                type="button"
-                onClick={() => addProduct(product)}
-                style={{
-                  textAlign: "left",
-                  padding: 14,
-                  background: "white",
-                  border: "1px solid #ddd",
-                  borderRadius: 8,
-                  cursor: "pointer",
+              <form
+                className="cashier-code-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void checkProduct();
                 }}
               >
-                <strong>{product.name}</strong>
-                <div>{product.brand}</div>
-                <div>{rupiah(product.current_selling_price)}</div>
-              </button>
-            ))}
-          </div>
-        </section>
+                <label htmlFor="product-code">Kode Barang</label>
 
-        <section>
-          <h2>Keranjang ({cart.length})</h2>
+                <div className="cashier-code-row">
+                  <div className="cashier-code-input-wrap">
+                    <Tag size={19} />
+                    <input
+                      id="product-code"
+                      type="text"
+                      value={code}
+                      onChange={(e) => {
+                        setCode(e.target.value);
+                        setFoundProduct(null);
+                        setError("");
+                        setMessage("");
+                      }}
+                      placeholder="Masukkan kode barang"
+                      autoComplete="off"
+                      autoFocus
+                    />
+                  </div>
 
-          {cart.map((item) => (
-            <article
-              key={item.product.id}
-              style={{ borderBottom: "1px solid #ddd", padding: "12px 0" }}
-            >
-              <strong>{item.product.name}</strong>
-              <p>{rupiah(item.product.current_selling_price)} / unit</p>
-              <label>
-                Jumlah:{" "}
+                  <button
+                    type="submit"
+                    className="cashier-check-button"
+                    disabled={checking || !code.trim()}
+                  >
+                    {checking ? (
+                      <LoaderCircle size={18} className="cashier-spin" />
+                    ) : (
+                      <Search size={18} />
+                    )}
+                    {checking ? "Memeriksa..." : "Cek Barang"}
+                  </button>
+                </div>
+
+                <span className="cashier-field-hint">
+                  Masukkan kode sesuai master produk yang terdaftar.
+                </span>
+              </form>
+
+              {foundProduct && (
+                <div className="cashier-found-product">
+                  <div className="cashier-found-top">
+                    <div className="cashier-found-icon">
+                      <PackageCheck size={25} />
+                    </div>
+                    <span className="cashier-found-badge">
+                      <CheckCircle2 size={14} />
+                      Barang ditemukan
+                    </span>
+                  </div>
+
+                  <div className="cashier-found-details">
+                    <span className="cashier-product-code">
+                      KODE {foundProduct.product_code}
+                    </span>
+                    <h3>{foundProduct.name}</h3>
+                    <p>{foundProduct.brand || "Tanpa merek"}</p>
+                  </div>
+
+                  <div className="cashier-found-bottom">
+                    <div>
+                      <span>Harga jual</span>
+                      <strong>
+                        {rupiah(foundProduct.current_selling_price)}
+                      </strong>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => addProduct(foundProduct)}
+                      className="cashier-add-button"
+                    >
+                      <Plus size={18} />
+                      Tambah ke Keranjang
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="cashier-card cashier-cart-card">
+              <div className="cashier-section-heading cashier-cart-heading">
+                <div className="cashier-section-icon">
+                  <ShoppingCart size={20} />
+                </div>
+                <div>
+                  <h2>Keranjang Belanja</h2>
+                  <p>Daftar barang yang akan ditransaksikan.</p>
+                </div>
+                <span className="cashier-cart-count">
+                  {cart.length} jenis
+                </span>
+              </div>
+
+              {cart.length === 0 ? (
+                <div className="cashier-empty">
+                  <div className="cashier-empty-icon">
+                    <ShoppingCart size={29} />
+                  </div>
+                  <h3>Keranjang masih kosong</h3>
+                  <p>
+                    Periksa kode barang terlebih dahulu untuk mulai
+                    menambahkan produk.
+                  </p>
+                </div>
+              ) : (
+                <div className="cashier-cart-list">
+                  {cart.map((item) => (
+                    <article
+                      key={item.product.id}
+                      className="cashier-cart-item"
+                    >
+                      <div className="cashier-cart-product-icon">
+                        <Package size={20} />
+                      </div>
+
+                      <div className="cashier-cart-product">
+                        <strong>{item.product.name}</strong>
+                        <span>{item.product.brand}</span>
+                        <small>
+                          {rupiah(item.product.current_selling_price)} / unit
+                        </small>
+                      </div>
+
+                      <div className="cashier-quantity-control">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            changeQuantity(
+                              item.product.id,
+                              item.quantity - 1
+                            )
+                          }
+                          aria-label="Kurangi jumlah"
+                        >
+                          <Minus size={14} />
+                        </button>
+
+                        <span>{item.quantity}</span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            changeQuantity(
+                              item.product.id,
+                              item.quantity + 1
+                            )
+                          }
+                          aria-label="Tambah jumlah"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+
+                      <strong className="cashier-line-total">
+                        {rupiah(
+                          item.product.current_selling_price *
+                            item.quantity
+                        )}
+                      </strong>
+
+                      <button
+                        type="button"
+                        className="cashier-remove-button"
+                        onClick={() => removeProduct(item.product.id)}
+                        aria-label="Hapus barang"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
+          <aside className="cashier-card cashier-payment-card">
+            <div className="cashier-section-heading">
+              <div className="cashier-section-icon">
+                <Wallet size={20} />
+              </div>
+              <div>
+                <h2>Pembayaran</h2>
+                <p>Ringkasan transaksi.</p>
+              </div>
+            </div>
+
+            <div className="cashier-total-box">
+              <span>Total Tagihan</span>
+              <strong>{rupiah(total)}</strong>
+              <small>{cart.length} jenis barang</small>
+            </div>
+
+            <div className="cashier-summary-line">
+              <span>Subtotal</span>
+              <strong>{rupiah(subtotal)}</strong>
+            </div>
+
+            <div className="cashier-discount-field">
+              <label htmlFor="discount">Diskon (Rp)</label>
+              <div className="cashier-simple-input">
+                <span>Rp</span>
                 <input
+                  id="discount"
                   type="number"
-                  min="1"
-                  step="1"
-                  value={item.quantity}
-                  onChange={(e) =>
-                    changeQuantity(
-                      item.product.id,
-                      Number(e.target.value)
-                    )
-                  }
-                  style={{ width: 80, padding: 6 }}
+                  min="0"
+                  value={discount}
+                  onChange={(e) => setDiscount(e.target.value)}
+                  placeholder="0"
                 />
-              </label>
-              <button
-                type="button"
-                onClick={() =>
-                  changeQuantity(item.product.id, 0)
-                }
-                style={{ marginLeft: 10 }}
-              >
-                Hapus
-              </button>
-            </article>
-          ))}
+              </div>
+            </div>
 
-          <p>Subtotal: <strong>{rupiah(subtotal)}</strong></p>
+            <div className="cashier-payment-divider" />
 
-          <label>
-            Diskon (Rp)
-            <input
-              type="number"
-              min="0"
-              value={discount}
-              onChange={(e) => setDiscount(e.target.value)}
-              style={{ display: "block", width: "100%", padding: 10, boxSizing: "border-box" }}
-            />
-          </label>
+            <div className="cashier-payment-method">
+              <label htmlFor="payment-method">Metode Pembayaran</label>
+              <div className="cashier-select-wrap">
+                <CreditCard size={17} />
+                <select
+                  id="payment-method"
+                  value={paymentMethod}
+                  onChange={(e) => {
+                    const method = e.target.value;
+                    setPaymentMethod(method);
+                    if (method !== "cash") {
+                      setAmountPaid(String(total));
+                    }
+                  }}
+                >
+                  <option value="cash">Tunai</option>
+                  <option value="qris">QRIS</option>
+                  <option value="transfer">Transfer</option>
+                  <option value="other">Lainnya</option>
+                </select>
+              </div>
+            </div>
 
-          <h2>Total: {rupiah(total)}</h2>
+            <div className="cashier-paid-field">
+              <label htmlFor="amount-paid">ayar (Rp)</label>
+              <div className="cashier-simple-input">
+                <span>Rp</span>
+                <input
+                  id="amount-paid"
+                  type="number"
+                  min="0"
+                  value={amountPaid}
+                  onChange={(e) => setAmountPaid(e.target.value)}
+                  placeholder="Masukkan pembayaran"
+                />
+              </div>
+            </div>
 
-          <label>
-            Metode pembayaran
-            <select
-              value={paymentMethod}
-              onChange={(e) => {
-                setPaymentMethod(e.target.value);
-                if (e.target.value !== "cash") setAmountPaid(String(total));
-              }}
-              style={{ display: "block", width: "100%", padding: 10 }}
+            {paymentMethod === "cash" && (
+              <div className="cashier-change-box">
+                <div>
+                  <Banknote size={18} />
+                  <span>Kembalian</span>
+                </div>
+                <strong>{rupiah(change)}</strong>
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="cashier-checkout-button"
+              onClick={() => void checkout()}
+              disabled={busy || cart.length === 0}
             >
-              <option value="cash">Tunai</option>
-              <option value="qris">QRIS</option>
-              <option value="transfer">Transfer</option>
-              <option value="other">Lainnya</option>
-            </select>
-          </label>
+              {busy ? (
+                <>
+                  <LoaderCircle size={19} className="cashier-spin" />
+                  Memproses Transaksi...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={19} />
+                  Proses Pembayaran
+                </>
+              )}
+            </button>
 
-          <label>
-            Jumlah dibayar (Rp)
-            <input
-              type="number"
-              min="0"
-              value={amountPaid}
-              onChange={(e) => setAmountPaid(e.target.value)}
-              style={{ display: "block", width: "100%", padding: 10, boxSizing: "border-box" }}
-            />
-          </label>
-
-          {paymentMethod === "cash" && (
-            <p>
-              Kembalian:{" "}
-              {rupiah(Math.max(0, Number(amountPaid || 0) - total))}
+            <p className="cashier-payment-note">
+              Pastikan jumlah barang dan pembayaran sudah benar sebelum
+              menyelesaikan transaksi.
             </p>
-          )}
+          </aside>
+        </div>
 
-          <button
-            type="button"
-            disabled={busy || cart.length === 0}
-            onClick={checkout}
-            style={{
-              marginTop: 16,
-              width: "100%",
-              padding: 14,
-              background: "#176b45",
-              color: "white",
-              border: 0,
-              borderRadius: 8,
-              fontWeight: 700,
-              cursor: busy ? "wait" : "pointer",
-            }}
-          >
-            {busy ? "Memproses..." : "Proses Pembayaran"}
-          </button>
-        </section>
+        {receipt && (
+          <section id="receipt" className="cashier-receipt">
+            <div className="cashier-receipt-header">
+              <div className="cashier-receipt-logo">
+                <ShoppingCart size={22} />
+              </div>
+              <h2>TOKO ROSYIDAH</h2>
+              <p>Pasar Sebaung</p>
+              <span>BUKTI PEMBAYARAN</span>
+              <strong>{receipt.receipt_number}</strong>
+            </div>
+
+            <div className="cashier-receipt-divider" />
+
+            {receipt.items.map((item, index) => (
+              <div key={index} className="cashier-receipt-item">
+                <strong>{item.name}</strong>
+                <span>{item.brand}</span>
+                <div>
+                  <span>
+                    {item.quantity} × {rupiah(item.selling_price)}
+                  </span>
+                  <strong>{rupiah(item.line_total)}</strong>
+                </div>
+              </div>
+            ))}
+
+            <div className="cashier-receipt-divider" />
+
+            <div className="cashier-receipt-row">
+              <span>Subtotal</span>
+              <strong>{rupiah(receipt.subtotal)}</strong>
+            </div>
+            <div className="cashier-receipt-row">
+              <span>Diskon</span>
+              <strong>{rupiah(receipt.discount)}</strong>
+            </div>
+            <div className="cashier-receipt-row cashier-receipt-total">
+              <span>Total</span>
+              <strong>{rupiah(receipt.total)}</strong>
+            </div>
+            <div className="cashier-receipt-row">
+              <span>Dibayar</span>
+              <strong>{rupiah(receipt.amount_paid)}</strong>
+            </div>
+            <div className="cashier-receipt-row">
+              <span>Kembalian</span>
+              <strong>{rupiah(receipt.change_amount)}</strong>
+            </div>
+
+            <p className="cashier-receipt-thanks">
+              Terima kasih telah berbelanja.
+            </p>
+
+            <button
+              type="button"
+              className="cashier-print-button"
+              onClick={() => window.print()}
+            >
+              <Printer size={17} />
+              Cetak Struk
+            </button>
+          </section>
+        )}
+
+        <footer className="cashier-footer">
+          <strong>TOKO ROSYIDAH</strong>
+          <span>·</span>
+          Sistem Kasir & Penjualan
+        </footer>
       </div>
 
       <style jsx global>{`
         @media print {
-          body * { visibility: hidden; }
-          #receipt, #receipt * { visibility: visible; }
-          #receipt {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 72mm;
-            max-width: 72mm;
-            margin: 0;
-            padding: 4mm;
-            border: 0 !important;
+          body * {
+            visibility: hidden !important;
           }
-          #receipt button { display: none; }
+
+          #receipt,
+          #receipt * {
+            visibility: visible !important;
+          }
+
+          #receipt {
+            display: block !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 72mm !important;
+            max-width: 72mm !important;
+            margin: 0 !important;
+            padding: 4mm !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            color: #111 !important;
+            background: #fff !important;
+          }
+
+          #receipt button {
+            display: none !important;
+          }
         }
       `}</style>
     </main>
