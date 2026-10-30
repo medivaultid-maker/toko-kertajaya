@@ -61,6 +61,7 @@ export default function Home() {
 const [supabase] = useState(() => createClient());
 const [userName, setUserName] = useState("");
 const [loggedIn, setLoggedIn] = useState(false);
+const [authLoading, setAuthLoading] = useState(true);
 const [showUserMenu, setShowUserMenu] = useState(false);
 
 useEffect(() => {
@@ -73,11 +74,12 @@ useEffect(() => {
 
     if (!mounted) return;
 
-    if (!user) {
-      setLoggedIn(false);
-      setUserName("");
-      return;
-    }
+   if (!user) {
+  setLoggedIn(false);
+  setUserName("");
+  setAuthLoading(false);
+  return;
+}
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -94,6 +96,7 @@ useEffect(() => {
       user.email ||
       "Pengguna"
     );
+    setAuthLoading(false);
   }
 
   void loadUser();
@@ -122,6 +125,26 @@ async function handleLogout() {
   setUserName("");
   setShowUserMenu(false);
   window.location.href = "/login";
+}
+
+if (authLoading) {
+  return (
+    <main
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        background: "#f5f7f6",
+        color: "#176b45",
+      }}
+    >
+      Memeriksa sesi pengguna...
+    </main>
+  );
+}
+
+if (!loggedIn) {
+  return <PublicHome />;
 }
 
   return (
@@ -372,6 +395,384 @@ async function handleLogout() {
   </section>
 </main>
 );
+}
+function PublicHome() {
+  return (
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "#f5f7f6",
+        color: "#17251e",
+        fontFamily: "inherit",
+      }}
+    >
+      {/* HEADER */}
+      <header
+        style={{
+          background: "#ffffff",
+          borderBottom: "1px solid #e6ece8",
+          padding: "16px 5%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 16,
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div
+            style={{
+              width: 46,
+              height: 46,
+              borderRadius: 13,
+              background: "#e8f5ec",
+              color: "#176b45",
+              display: "grid",
+              placeItems: "center",
+            }}
+          >
+            <Store size={25} />
+          </div>
+
+          <div>
+            <strong style={{ display: "block", fontSize: 19 }}>
+              Toko Rosyidah
+            </strong>
+            <span style={{ color: "#7a8980", fontSize: 12 }}>
+              Pasar Sebaung
+            </span>
+          </div>
+        </div>
+
+        <Link
+          href="/login"
+          style={{
+            background: "#176b45",
+            color: "#ffffff",
+            padding: "12px 24px",
+            borderRadius: 25,
+            textDecoration: "none",
+            fontSize: 14,
+            fontWeight: 700,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          Login Pegawai / Admin
+          <ShieldCheck size={17} />
+        </Link>
+      </header>
+
+      {/* HERO */}
+      <section
+        style={{
+          padding: "75px 6% 65px",
+          background:
+            "linear-gradient(135deg, #e8f5ec 0%, #f7faf8 65%, #ffffff 100%)",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1150,
+            margin: "0 auto",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            alignItems: "center",
+            gap: 45,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                color: "#176b45",
+                background: "#ffffff",
+                padding: "8px 14px",
+                borderRadius: 30,
+                fontSize: 12,
+                fontWeight: 700,
+                marginBottom: 22,
+              }}
+            >
+              <Wifi size={15} />
+              SISTEM TOKO ROSYIDAH
+            </div>
+
+            <h1
+              style={{
+                fontSize: "clamp(34px, 5vw, 55px)",
+                lineHeight: 1.13,
+                letterSpacing: -1.5,
+                margin: "0 0 20px",
+                color: "#173d2d",
+              }}
+            >
+              Selamat Datang di
+              <br />
+              Toko Rosyidah
+            </h1>
+
+            <p
+              style={{
+                fontSize: 16,
+                lineHeight: 1.8,
+                color: "#68786e",
+                maxWidth: 510,
+                marginBottom: 28,
+              }}
+            >
+              Sistem informasi dan pengelolaan Toko Rosyidah.
+              Kami hadir untuk memberikan pelayanan yang mudah,
+              nyaman, dan terpercaya.
+            </p>
+
+            <Link
+              href="/login"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                background: "#176b45",
+                color: "#ffffff",
+                padding: "15px 25px",
+                borderRadius: 10,
+                textDecoration: "none",
+                fontWeight: 700,
+                boxShadow: "0 8px 20px rgba(23,107,69,0.16)",
+              }}
+            >
+              Masuk ke Sistem
+              <ShieldCheck size={18} />
+            </Link>
+          </div>
+
+          <div
+            style={{
+              minHeight: 310,
+              borderRadius: 25,
+              background: "#176b45",
+              padding: 35,
+              color: "#ffffff",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              position: "relative",
+              overflow: "hidden",
+              boxShadow: "0 18px 45px rgba(23,107,69,0.15)",
+            }}
+          >
+            <div style={{ opacity: 0.13, position: "absolute", right: -20, top: -30 }}>
+              <Store size={230} />
+            </div>
+
+            <div
+              style={{
+                width: 65,
+                height: 65,
+                borderRadius: 18,
+                background: "rgba(255,255,255,0.15)",
+                display: "grid",
+                placeItems: "center",
+                marginBottom: 25,
+              }}
+            >
+              <Store size={34} />
+            </div>
+
+            <h2 style={{ fontSize: 27, margin: "0 0 12px", position: "relative" }}>
+              Toko Rosyidah
+            </h2>
+
+            <p
+              style={{
+                color: "#d8eee0",
+                lineHeight: 1.7,
+                margin: 0,
+                maxWidth: 330,
+                position: "relative",
+              }}
+            >
+              Melayani kebutuhan Anda dengan sepenuh hati.
+            </p>
+
+            <div
+              style={{
+                marginTop: 35,
+                paddingTop: 20,
+                borderTop: "1px solid rgba(255,255,255,0.2)",
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                color: "#e0f2e6",
+                fontSize: 13,
+                position: "relative",
+              }}
+            >
+              <ShieldCheck size={17} />
+              Sistem pengelolaan toko
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* INFORMASI */}
+      <section style={{ maxWidth: 1150, margin: "0 auto", padding: "55px 6%" }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <span
+            style={{
+              color: "#176b45",
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: 1.5,
+            }}
+          >
+            INFORMASI TOKO
+          </span>
+
+          <h2 style={{ fontSize: 29, margin: "10px 0", color: "#1b2b22" }}>
+            Selalu Siap Melayani
+          </h2>
+
+          <p style={{ color: "#7a8980", margin: 0 }}>
+            Informasi singkat mengenai Toko Rosyidah.
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 18,
+          }}
+        >
+          {[
+            {
+              icon: <Store size={24} />,
+              title: "Lokasi Toko",
+              description: "Pasar Sebaung",
+            },
+            {
+              icon: <PackagePlus size={24} />,
+              title: "Kebutuhan Harian",
+              description: "Menyediakan berbagai kebutuhan toko.",
+            },
+            {
+              icon: <ShieldCheck size={24} />,
+              title: "Pelayanan",
+              description: "Mengedepankan pelayanan yang nyaman.",
+            },
+          ].map((item) => (
+            <div
+              key={item.title}
+              style={{
+                background: "#ffffff",
+                border: "1px solid #e7ece8",
+                borderRadius: 16,
+                padding: 25,
+              }}
+            >
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 13,
+                  background: "#e8f5ec",
+                  color: "#176b45",
+                  display: "grid",
+                  placeItems: "center",
+                  marginBottom: 18,
+                }}
+              >
+                {item.icon}
+              </div>
+
+              <h3 style={{ margin: "0 0 8px", fontSize: 17 }}>
+                {item.title}
+              </h3>
+
+              <p
+                style={{
+                  color: "#7a8980",
+                  fontSize: 13,
+                  lineHeight: 1.7,
+                  margin: 0,
+                }}
+              >
+                {item.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* LOGIN AREA */}
+      <section style={{ padding: "0 6% 55px" }}>
+        <div
+          style={{
+            maxWidth: 1150,
+            margin: "0 auto",
+            background: "#ffffff",
+            border: "1px solid #e7ece8",
+            borderRadius: 18,
+            padding: "28px 30px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 20,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <h3 style={{ margin: "0 0 8px", fontSize: 19 }}>
+              Area Khusus Pegawai dan Admin
+            </h3>
+            <p style={{ color: "#7a8980", margin: 0, fontSize: 14 }}>
+              Silakan login untuk mengakses sistem pengelolaan toko.
+            </p>
+          </div>
+
+          <Link
+            href="/login"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 9,
+              background: "#176b45",
+              color: "#ffffff",
+              padding: "13px 21px",
+              borderRadius: 10,
+              textDecoration: "none",
+              fontWeight: 700,
+              fontSize: 13,
+            }}
+          >
+            Login Sekarang
+            <ShieldCheck size={17} />
+          </Link>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer
+        style={{
+          background: "#ffffff",
+          borderTop: "1px solid #e7ece8",
+          padding: "23px 6%",
+          color: "#7a8980",
+          fontSize: 13,
+          textAlign: "center",
+        }}
+      >
+        © {new Date().getFullYear()} Toko Rosyidah
+        <span style={{ margin: "0 8px" }}>•</span>
+        Sistem manajemen toko
+      </footer>
+    </main>
+  );
 }
 
 function StatCard({ title, value, note, icon }: { title: string; value: string; note: string; icon: React.ReactNode }) {
