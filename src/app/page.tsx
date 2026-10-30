@@ -165,10 +165,6 @@ if (!loggedIn) {
             </button>
           ))}
         </nav>
-        <div className="sidebar-bottom">
-          <div className="secure-note"><ShieldCheck size={17} /><span>Akses sesuai peran pengguna</span></div>
-          <div className="user-mini"><div className="avatar">A</div><div><strong>Admin Toko</strong><span>Pratinjau tampilan</span></div><ChevronDown size={16} /></div>
-        </div>
       </aside>
 
       <section className="main-area">
@@ -177,15 +173,6 @@ if (!loggedIn) {
           <div className="breadcrumb">Toko Rosyidah <span>/</span> <strong>{activeItem.label}</strong></div>
           
 <div className="topbar-right">
-  <span className="online-pill">
-    <Wifi size={14} /> Online
-  </span>
-
-  <button className="icon-button" aria-label="Notifikasi">
-    <Bell size={19} />
-    <i />
-  </button>
-
   {loggedIn ? (
     <div style={{ position: "relative" }}>
       <button
@@ -307,45 +294,6 @@ if (!loggedIn) {
         <StatCard title="Laba Kotor Hari Ini" value={rupiah(0)} note="Dari snapshot transaksi" icon={<ChartNoAxesCombined size={20} />} />
       </div>
 
-      <div className="content-grid">
-        <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <h2>Akses Cepat</h2>
-              <p>Pilih aktivitas yang ingin dilakukan.</p>
-            </div>
-          </div>
-          <div className="quick-grid">
-            <QuickAction icon={<PackagePlus size={20} />} title="Input Kulakan" desc="Catat barang masuk" onClick={() => setActive("kulakan")} />
-            <QuickAction icon={<CircleDollarSign size={20} />} title="Atur Harga Jual" desc="Tinjau harga barang" onClick={() => setActive("harga")} />
-            <QuickAction icon={<ShoppingCart size={20} />} title="Buka Kasir" desc="Halaman transaksi" onClick={() => setActive("kasir")} />
-            <QuickAction icon={<ChartNoAxesCombined size={20} />} title="Lihat Laporan" desc="Ringkasan penjualan" onClick={() => setActive("laporan")} />
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <h2>Aktivitas Terbaru</h2>
-              <p>Jejak aktivitas toko</p>
-            </div>
-            <span className="subtle-label">REAL-TIME SETELAH TERHUBUNG</span>
-          </div>
-          <div className="empty-state">
-            <div className="empty-icon"><ClipboardList size={22} /></div>
-            <strong>Belum ada aktivitas</strong>
-            <p>Aktivitas kulakan, perubahan harga, dan penjualan akan tampil di sini.</p>
-          </div>
-        </section>
-      </div>
-
-      <div className="bottom-info">
-        <ShieldCheck size={18} />
-        <div>
-          <strong>Harga transaksi akan tersimpan sebagai snapshot.</strong>
-          <span>Perubahan harga di kemudian hari tidak akan mengubah transaksi yang sudah selesai.</span>
-        </div>
-      </div>
     </>
 
 ) : active === "kulakan" ? (
@@ -769,7 +717,7 @@ function PublicHome() {
       >
         © {new Date().getFullYear()} Toko Rosyidah
         <span style={{ margin: "0 8px" }}>•</span>
-        Sistem manajemen toko
+        Sistem Manajemen Toko
       </footer>
     </main>
   );
@@ -777,7 +725,4 @@ function PublicHome() {
 
 function StatCard({ title, value, note, icon }: { title: string; value: string; note: string; icon: React.ReactNode }) {
   return <div className="stat-card"><div className="stat-top"><span>{title}</span><div className="stat-icon">{icon}</div></div><strong className="stat-value">{value}</strong><span className="stat-note">{note}</span></div>;
-}
-function QuickAction({ icon, title, desc, onClick }: { icon: React.ReactNode; title: string; desc: string; onClick: () => void }) {
-  return <button className="quick-action" onClick={onClick}><span className="quick-icon">{icon}</span><span className="quick-copy"><strong>{title}</strong><small>{desc}</small></span><span className="quick-arrow">→</span></button>;
 }

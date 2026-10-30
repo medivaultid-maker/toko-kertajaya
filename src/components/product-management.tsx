@@ -100,6 +100,9 @@ export default function ProductManagement() {
       setLoading(false);
     }
   }, [supabase]);
+    useEffect(() => {
+    void loadProducts();
+  }, [loadProducts]);
 
   const activeProducts = useMemo(
   () => products.filter((p) => p.is_active),
@@ -176,17 +179,10 @@ const filteredProducts = useMemo(() => {
       return "Nama barang wajib diisi.";
     }
 
-    const codes = rows.map((p) => normalize(p.product_code));
-    const names = rows.map(
-      (p) => `${normalize(p.name)}|||${normalize(p.brand)}`
-    );
+        const codes = rows.map((p) => normalize(p.product_code));
 
     if (new Set(codes).size !== codes.length) {
-      return "Ada kode barang yang sama dalam formulir.";
-    }
-
-    if (new Set(names).size !== names.length) {
-      return "Ada nama barang dan merek yang sama dalam formulir.";
+      return "Kode barang tidak boleh sama.";
     }
 
     for (const p of rows) {
@@ -212,17 +208,17 @@ const filteredProducts = useMemo(() => {
     return "";
   }
 
-  async function checkDuplicates(
+    async function checkDuplicates(
     rows: DraftProduct[],
     excludeId?: string
   ) {
     const { data, error: checkError } = await supabase
       .from("products")
-      .select("id, product_code, name, brand");
+      .select("id, product_code");
 
     if (checkError) {
       return {
-        error: `Gagal memeriksa barang: ${checkError.message}`,
+        error: `Gagal memeriksa kode barang: ${checkError.message}`,
       };
     }
 
@@ -230,19 +226,13 @@ const filteredProducts = useMemo(() => {
       const duplicate = (data ?? []).find(
         (saved) =>
           saved.id !== excludeId &&
-          (
-            normalize(saved.product_code ?? "") ===
-              normalize(item.product_code) ||
-            (
-              normalize(saved.name ?? "") === normalize(item.name) &&
-              normalize(saved.brand ?? "") === normalize(item.brand)
-            )
-          )
+          normalize(saved.product_code ?? "") ===
+            normalize(item.product_code)
       );
 
       if (duplicate) {
         return {
-          error: `Kode atau kombinasi nama dan merek untuk "${item.name}" sudah terdaftar.`,
+          error: `Kode barang "${item.product_code}" sudah terdaftar. Gunakan kode barang lain.`,
         };
       }
     }
@@ -1182,15 +1172,15 @@ async function activateProduct(product: Product) {
           </p>
         </div>
 
-        <div className="count-chip">
-          {products.length} barang aktif
+               <div className="count-chip">
+          {activeProducts.length} barang aktif
         </div>
       </header>
 
       <div className="stats">
         <div className="stat">
           <div className="stat-label">Total barang aktif</div>
-          <div className="stat-value">{products.length}</div>
+          <div className="stat-value">{activeProducts.length}</div>
           <div className="stat-caption">Jumlah jenis barang terdaftar</div>
         </div>
 
@@ -1686,17 +1676,6 @@ async function activateProduct(product: Product) {
         </section>
       )}
 
-      <aside className="info">
-        <span className="info-icon">i</span>
-        <div>
-          <strong>Informasi pengelolaan barang</strong>
-          Jumlah stok awal diisi saat barang didaftarkan. Perubahan jumlah
-          stok pada formulir edit akan langsung mengubah angka stok di master
-          barang. Tombol Hapus menonaktifkan barang agar data barang tetap
-          tersimpan. Pastikan proses transaksi nantinya mengurangi stok
-          secara konsisten dan menyimpan riwayat transaksi.
-        </div>
-      </aside>
     </div>
   );
 }
