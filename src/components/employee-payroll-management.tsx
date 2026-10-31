@@ -260,70 +260,23 @@ const [selectedHistoryStart, setSelectedHistoryStart] = useState<string | null>(
     return total + (totalDebtByEmployee[employee.id] || 0);
   }, 0);
 
-  const filteredEmployees = employees.filter((employee) => {
-    const payroll = payrollByEmployee.get(employee.id);
-const historyPeriods = useMemo(() => {
-  const grouped = new Map<string, Payroll[]>();
+ const filteredEmployees = employees.filter((employee) => {
+  const payroll = payrollByEmployee.get(employee.id);
 
-  for (const payroll of payrolls) {
-    const existing = grouped.get(payroll.week_start) || [];
-    existing.push(payroll);
-    grouped.set(payroll.week_start, existing);
-  }
+  const matchesSearch =
+    employee.full_name.toLowerCase().includes(search.toLowerCase()) ||
+    (employee.employee_code || "")
+      .toLowerCase()
+      .includes(search.toLowerCase());
 
-  return Array.from(grouped.entries())
-    .map(([start, items]) => {
-      const period = periods.find((item) => item.start === start);
+  const matchesStatus =
+    statusFilter === "all" ||
+    (statusFilter === "paid" && payroll?.payment_status === "paid") ||
+    (statusFilter === "draft" && payroll?.payment_status === "draft") ||
+    (statusFilter === "not-calculated" && !payroll);
 
-      const paid = items.filter(
-        (item) => item.payment_status === "paid"
-      ).length;
-
-      const draft = items.filter(
-        (item) => item.payment_status === "draft"
-      ).length;
-
-      return {
-        start,
-        end: period?.end || items[0].week_end,
-        items,
-        paid,
-        draft,
-        totalGross: items.reduce(
-          (sum, item) => sum + Number(item.gross_salary || 0),
-          0
-        ),
-        totalDeduction: items.reduce(
-          (sum, item) =>
-            sum +
-            Number(item.absence_deduction || 0) +
-            Number(item.debt_deduction || 0),
-          0
-        ),
-        totalNet: items.reduce(
-          (sum, item) => sum + Number(item.net_salary || 0),
-          0
-        ),
-      };
-    })
-    .sort((a, b) => b.start.localeCompare(a.start));
-}, [payrolls, periods]);
-
-const selectedHistoryPeriod = historyPeriods.find(
-  (period) => period.start === selectedHistoryStart
-);
-    const matchesSearch =
-      employee.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      (employee.employee_code || "").toLowerCase().includes(search.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === "all" ||
-      (statusFilter === "paid" && payroll?.payment_status === "paid") ||
-      (statusFilter === "draft" && payroll?.payment_status === "draft") ||
-      (statusFilter === "not-calculated" && !payroll);
-
-    return matchesSearch && matchesStatus;
-  });
+  return matchesSearch && matchesStatus;
+});
 
   // RIWAYAT PENGGAJIAN PER PERIODE
 const historyPeriods = useMemo(() => {
