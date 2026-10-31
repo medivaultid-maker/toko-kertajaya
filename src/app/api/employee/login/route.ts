@@ -102,10 +102,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      redirect: "/",
-    });
+   return NextResponse.json({
+  success: true,
+  redirect: "/dashboard",
+});
   } catch (error) {
     console.error("Employee login error:", error);
 

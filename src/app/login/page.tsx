@@ -52,17 +52,9 @@ export default function LoginPage() {
           return;
         }
 
-        const params = new URLSearchParams(window.location.search);
-        const next = params.get("next");
-
-        const destination =
-          next && next.startsWith("/") && !next.startsWith("//")
-            ? next
-            : "/";
-
-        router.replace(destination);
-        router.refresh();
-        return;
+        router.replace("/dashboard");
+router.refresh();
+return;
       }
 
       const response = await fetch("/api/employee/login", {
@@ -84,8 +76,8 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace("/");
-      router.refresh();
+      router.replace(result.redirect || "/dashboard");
+router.refresh();
     } catch (err) {
       console.error("Login error:", err);
       setError("Terjadi kesalahan. Periksa koneksi internet kamu.");
@@ -105,11 +97,11 @@ export default function LoginPage() {
     <main className="login-page">
       <div className="login-container">
         <Link href="/" className="login-back">
-          <span className="login-back-icon">
-            <ArrowLeft size={18} />
-          </span>
-          Kembali ke Beranda
-        </Link>
+  <span className="login-back-icon">
+    <ArrowLeft size={16} strokeWidth={2} />
+  </span>
+  <span className="login-back-text">Kembali ke Beranda</span>
+</Link>
 
         <section className="login-card">
           <div className="login-brand">
@@ -137,7 +129,7 @@ export default function LoginPage() {
               aria-pressed={loginMode === "admin"}
             >
               <ShieldCheck size={18} />
-              <span>Admin</span>
+              <span>Owner</span>
             </button>
 
             <button
@@ -155,7 +147,7 @@ export default function LoginPage() {
             {loginMode === "admin" ? (
               <>
                 <ShieldCheck size={17} />
-                <span>Masuk menggunakan akun administrator toko.</span>
+                <span>Masuk menggunakan akun pemilik toko.</span>
               </>
             ) : (
               <>
@@ -168,7 +160,7 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="login-form">
             {loginMode === "admin" ? (
               <div className="login-field">
-                <label htmlFor="email">Email Admin</label>
+                <label htmlFor="email">Email Owner</label>
 
                 <div className="login-input-wrapper">
                   <Mail size={19} className="login-input-icon" />
@@ -275,10 +267,10 @@ export default function LoginPage() {
             >
               <span>
                 {loading
-                  ? "Memproses..."
-                  : loginMode === "admin"
-                    ? "Masuk sebagai Admin"
-                    : "Masuk sebagai Pegawai"}
+  ? "Memproses..."
+  : loginMode === "admin"
+    ? "Masuk sebagai Owner"
+    : "Masuk sebagai Pegawai"}
               </span>
 
               {!loading && <ArrowRight size={19} />}
@@ -330,31 +322,60 @@ export default function LoginPage() {
         }
 
         .login-back {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 18px;
-          color: #52675a;
-          text-decoration: none;
-          font-size: 13px;
-          font-weight: 600;
-          transition: color 0.2s ease;
-        }
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 22px;
+  padding: 7px 17px 7px 7px;
+  border: 1px solid #e8e4d9;
+  border-radius: 50px;
+  background: #ffffff;
+  color: #174b36;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+  transition: all 0.25s ease;
+}
 
-        .login-back:hover {
-          color: #176b45;
-        }
+.login-back-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #edf4ef;
+  color: #174b36;
+  line-height: 1;
+  transition: all 0.25s ease;
+}
 
-        .login-back-icon {
-          width: 34px;
-          height: 34px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 10px;
-          background: #e7f2ea;
-          color: #176b45;
-        }
+.login-back-text {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  padding: 0;
+  margin: 0;
+}
+
+.login-back:hover {
+  background: #174b36;
+  border-color: #174b36;
+  color: #ffffff;
+  transform: translateX(-3px);
+  box-shadow: 0 7px 18px rgba(23, 75, 54, 0.14);
+}
+
+.login-back:hover .login-back-icon {
+  background: #b99a62;
+  color: #ffffff;
+}
 
         .login-card {
           width: 100%;
