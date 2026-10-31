@@ -338,7 +338,7 @@ const selectedHistoryPeriod = historyPeriods.find(
 
     if (
       !confirm(
-        `Hitung gaji seluruh pegawai untuk periode ${formatDate(
+        `Hitung gaji seluruh karyawan untuk periode ${formatDate(
           selectedPeriod.start
         )} sampai ${formatDate(selectedPeriod.end)}?`
       )
@@ -365,7 +365,7 @@ const selectedHistoryPeriod = historyPeriods.find(
   }
 
   async function payEmployee(payroll: Payroll) {
-    const employeeName = payroll.employees?.full_name || "pegawai ini";
+    const employeeName = payroll.employees?.full_name || "Karyawan ini";
 
     const remainingDebt =
       totalDebtByEmployee[payroll.employee_id] || 0;
@@ -414,7 +414,9 @@ const selectedHistoryPeriod = historyPeriods.find(
 
   return (
     <div className="payroll-page">
-      <style jsx>{`
+      
+       <style jsx>{`
+
         .payroll-page {
           --green: #174b36;
           --green-dark: #103a2a;
@@ -426,7 +428,11 @@ const selectedHistoryPeriod = historyPeriods.find(
           --line: #e8ece6;
 
           width: 100%;
+          min-height: 100%;
+          padding: 28px;
           padding-bottom: 36px;
+          border-radius: 18px;
+          background: var(--ivory);
           color: var(--ink);
           font-family: var(--font-dm-sans), sans-serif;
         }
@@ -435,23 +441,41 @@ const selectedHistoryPeriod = historyPeriods.find(
           box-sizing: border-box;
         }
 
+        /* HEADER */
+
         .page-header {
+          position: relative;
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
           gap: 20px;
-          margin-bottom: 25px;
+          min-height: 150px;
+          margin-bottom: 22px;
+          padding: 30px 27px;
+          overflow: hidden;
+          border: 1px solid #e5e9e1;
+          border-radius: 20px;
+          background:
+            radial-gradient(circle at 94% 10%, rgba(185,154,98,.13), transparent 24%),
+            linear-gradient(120deg, #ffffff 0%, #f1f6f0 100%);
+          box-shadow: 0 5px 18px rgba(31,57,41,.035);
+        }
+
+        .page-header > div {
+          position: relative;
+          z-index: 1;
+          min-width: 0;
         }
 
         .eyebrow {
           display: flex;
           align-items: center;
           gap: 8px;
-          margin-bottom: 9px;
-          color: var(--green);
+          margin-bottom: 10px;
+          color: var(--gold);
           font-size: 10px;
           font-weight: 800;
-          letter-spacing: .16em;
+          letter-spacing: 2.2px;
         }
 
         .eyebrow-dot {
@@ -463,19 +487,21 @@ const selectedHistoryPeriod = historyPeriods.find(
 
         .page-title {
           margin: 0;
-          color: var(--ink);
+          color: var(--green);
           font-family: var(--font-manrope), sans-serif;
-          font-size: 29px;
+          font-size: 32px;
           font-weight: 800;
-          letter-spacing: -.055em;
+          letter-spacing: -.045em;
           line-height: 1.2;
+          text-align: left;
         }
 
         .page-description {
-          margin-top: 8px;
+          margin: 9px 0 0;
           color: var(--muted);
           font-size: 12px;
           line-height: 1.7;
+          text-align: left;
         }
 
         .gold-line {
@@ -487,12 +513,15 @@ const selectedHistoryPeriod = historyPeriods.find(
         }
 
         .refresh-button {
+          position: relative;
+          z-index: 1;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
-          min-height: 40px;
-          padding: 0 14px;
+          min-height: 42px;
+          flex-shrink: 0;
+          padding: 0 15px;
           border: 1px solid var(--line);
           border-radius: 10px;
           background: white;
@@ -545,21 +574,21 @@ const selectedHistoryPeriod = historyPeriods.find(
           margin-top: 1px;
         }
 
-        /* HERO SUMMARY */
+        /* FINANCIAL OVERVIEW */
 
         .overview-card {
           position: relative;
-          overflow: hidden;
           display: grid;
           grid-template-columns: 1.3fr 1fr;
           gap: 24px;
+          overflow: hidden;
           margin-bottom: 18px;
-          padding: 25px 27px;
+          padding: 27px;
           border: 1px solid #214e39;
           border-radius: 19px;
           background: linear-gradient(120deg, #174b36 0%, #103a2a 100%);
           color: white;
-          box-shadow: 0 9px 24px rgba(16, 58, 42, .12);
+          box-shadow: 0 8px 22px rgba(16,58,42,.11);
         }
 
         .overview-card::before {
@@ -597,11 +626,10 @@ const selectedHistoryPeriod = historyPeriods.find(
           display: flex;
           align-items: center;
           gap: 8px;
-          color: rgba(255,255,255,.68);
+          color: rgba(255,255,255,.7);
           font-size: 10px;
           font-weight: 800;
-          letter-spacing: .13em;
-          text-transform: uppercase;
+          letter-spacing: .12em;
         }
 
         .overview-amount {
@@ -610,42 +638,43 @@ const selectedHistoryPeriod = historyPeriods.find(
           font-family: var(--font-manrope), sans-serif;
           font-size: clamp(25px, 3vw, 36px);
           font-weight: 800;
-          letter-spacing: -.055em;
-          line-height: 1.2;
+          letter-spacing: -.05em;
+          line-height: 1.25;
           overflow-wrap: anywhere;
         }
 
         .overview-caption {
-          margin-top: 9px;
-          color: rgba(255,255,255,.63);
+          max-width: 470px;
+          margin: 10px 0 0;
+          color: rgba(255,255,255,.67);
           font-size: 11px;
-          line-height: 1.6;
+          line-height: 1.7;
         }
 
         .overview-side {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           align-content: center;
-          gap: 11px;
+          gap: 12px;
         }
 
         .overview-mini {
           min-width: 0;
-          padding: 14px;
-          border: 1px solid rgba(255,255,255,.13);
-          border-radius: 12px;
-          background: rgba(255,255,255,.07);
+          padding: 16px;
+          border: 1px solid rgba(255,255,255,.14);
+          border-radius: 13px;
+          background: rgba(255,255,255,.075);
           backdrop-filter: blur(5px);
         }
 
         .overview-mini-label {
-          color: rgba(255,255,255,.65);
-          font-size: 9px;
+          color: rgba(255,255,255,.7);
+          font-size: 10px;
           font-weight: 700;
         }
 
         .overview-mini-value {
-          margin-top: 8px;
+          margin-top: 9px;
           color: white;
           font-size: 17px;
           font-weight: 800;
@@ -654,8 +683,8 @@ const selectedHistoryPeriod = historyPeriods.find(
         }
 
         .overview-mini-note {
-          margin-top: 4px;
-          color: rgba(255,255,255,.53);
+          margin-top: 5px;
+          color: rgba(255,255,255,.55);
           font-size: 9px;
         }
 
@@ -664,17 +693,15 @@ const selectedHistoryPeriod = historyPeriods.find(
         .stats-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 13px;
+          gap: 14px;
           margin-bottom: 22px;
         }
 
         .stat-card {
-          position: relative;
-          overflow: hidden;
           min-width: 0;
-          padding: 17px;
+          padding: 21px;
           border: 1px solid var(--line);
-          border-radius: 14px;
+          border-radius: 16px;
           background: white;
           box-shadow: 0 3px 12px rgba(31,57,41,.025);
           transition: .22s ease;
@@ -683,24 +710,24 @@ const selectedHistoryPeriod = historyPeriods.find(
         .stat-card:hover {
           transform: translateY(-3px);
           border-color: #d3dfd4;
-          box-shadow: 0 10px 22px rgba(31,57,41,.06);
+          box-shadow: 0 9px 20px rgba(31,57,41,.06);
         }
 
         .stat-top {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 8px;
+          gap: 10px;
         }
 
         .stat-icon {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 35px;
-          height: 35px;
+          width: 43px;
+          height: 43px;
           flex-shrink: 0;
-          border-radius: 10px;
+          border-radius: 12px;
         }
 
         .stat-icon.green {
@@ -719,16 +746,17 @@ const selectedHistoryPeriod = historyPeriods.find(
         }
 
         .stat-label {
+          margin: 0;
           color: #849087;
           font-size: 10px;
           font-weight: 700;
         }
 
         .stat-value {
-          margin-top: 14px;
+          margin: 15px 0 0;
           color: var(--ink);
           font-family: var(--font-manrope), sans-serif;
-          font-size: 24px;
+          font-size: 25px;
           font-weight: 800;
           letter-spacing: -.045em;
           line-height: 1.2;
@@ -736,22 +764,22 @@ const selectedHistoryPeriod = historyPeriods.find(
         }
 
         .stat-value.compact {
-          font-size: 16px;
+          font-size: 17px;
         }
 
         .stat-note {
-          margin-top: 5px;
+          margin: 6px 0 0;
           color: #9aa49b;
           font-size: 9px;
         }
 
-        /* COMMON PANEL */
+        /* PANELS */
 
         .panel {
-          overflow: hidden;
           margin-bottom: 21px;
+          overflow: hidden;
           border: 1px solid var(--line);
-          border-radius: 16px;
+          border-radius: 18px;
           background: white;
           box-shadow: 0 3px 14px rgba(25,52,35,.03);
         }
@@ -761,43 +789,53 @@ const selectedHistoryPeriod = historyPeriods.find(
           align-items: center;
           justify-content: space-between;
           gap: 14px;
-          padding: 18px 21px;
+          padding: 21px 25px;
           border-bottom: 1px solid #edf0eb;
         }
 
         .panel-heading {
           display: flex;
           align-items: center;
-          gap: 11px;
+          justify-content: flex-start;
+          gap: 13px;
           min-width: 0;
+          text-align: left;
         }
 
         .panel-icon {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 37px;
-          height: 37px;
+          width: 44px;
+          height: 44px;
           flex-shrink: 0;
-          border-radius: 11px;
+          border-radius: 12px;
           background: var(--green-soft);
           color: var(--green);
         }
 
+        .panel-heading > div:last-child {
+          flex: 1;
+          min-width: 0;
+          text-align: left;
+        }
+
         .panel-title {
           margin: 0;
-          color: var(--ink);
+          color: var(--green);
           font-family: var(--font-manrope), sans-serif;
-          font-size: 14px;
+          font-size: 16px;
           font-weight: 800;
           letter-spacing: -.025em;
+          text-align: left;
         }
 
         .panel-subtitle {
-          margin-top: 4px;
+          margin: 5px 0 0;
           color: var(--muted);
           font-size: 10px;
-          line-height: 1.5;
+          line-height: 1.6;
+          text-align: left;
         }
 
         /* PERIOD */
@@ -805,13 +843,13 @@ const selectedHistoryPeriod = historyPeriods.find(
         .period-content {
           display: grid;
           grid-template-columns: 1.25fr .75fr;
-          gap: 17px;
-          padding: 20px 21px;
+          gap: 20px;
+          padding: 23px 25px;
         }
 
         .field-label {
           display: block;
-          margin-bottom: 8px;
+          margin-bottom: 9px;
           color: #526157;
           font-size: 10px;
           font-weight: 800;
@@ -823,12 +861,13 @@ const selectedHistoryPeriod = historyPeriods.find(
 
         .field {
           width: 100%;
-          min-height: 45px;
-          padding: 0 40px 0 13px;
-          border: 1px solid #e4e9e2;
+          min-height: 46px;
+          padding: 0 40px 0 14px;
+          appearance: none;
+          border: 1px solid #e2e8e1;
           border-radius: 10px;
           outline: none;
-          background: #fff;
+          background: white;
           color: var(--ink);
           font-family: var(--font-dm-sans), sans-serif;
           font-size: 11px;
@@ -853,8 +892,9 @@ const selectedHistoryPeriod = historyPeriods.find(
         .payment-date-box {
           display: flex;
           align-items: center;
-          gap: 13px;
-          padding: 14px 16px;
+          gap: 14px;
+          min-height: 78px;
+          padding: 15px 17px;
           border: 1px solid #e3eae2;
           border-radius: 12px;
           background: linear-gradient(120deg, #f7faf6, #fbfcf9);
@@ -864,10 +904,10 @@ const selectedHistoryPeriod = historyPeriods.find(
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 39px;
-          height: 39px;
+          width: 43px;
+          height: 43px;
           flex-shrink: 0;
-          border-radius: 11px;
+          border-radius: 12px;
           background: #edf4ef;
           color: var(--green);
         }
@@ -889,7 +929,7 @@ const selectedHistoryPeriod = historyPeriods.find(
         }
 
         .payment-date-note {
-          margin-top: 3px;
+          margin-top: 4px;
           color: #849087;
           font-size: 9px;
         }
@@ -899,8 +939,8 @@ const selectedHistoryPeriod = historyPeriods.find(
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
-          gap: 12px;
-          padding: 14px 21px;
+          gap: 13px;
+          padding: 16px 25px;
           border-top: 1px solid #edf0eb;
           background: #fbfcfa;
         }
@@ -908,7 +948,7 @@ const selectedHistoryPeriod = historyPeriods.find(
         .period-status {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 9px;
           color: #526157;
           font-size: 10px;
           font-weight: 700;
@@ -932,8 +972,8 @@ const selectedHistoryPeriod = historyPeriods.find(
           align-items: center;
           justify-content: center;
           gap: 8px;
-          min-height: 41px;
-          padding: 0 16px;
+          min-height: 43px;
+          padding: 0 17px;
           border: 1px solid var(--green);
           border-radius: 10px;
           background: linear-gradient(135deg, #205a40, #174b36);
@@ -964,8 +1004,8 @@ const selectedHistoryPeriod = historyPeriods.find(
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
-          gap: 12px;
-          padding: 14px 19px;
+          gap: 13px;
+          padding: 16px 24px;
           border-bottom: 1px solid #edf0eb;
           background: #fbfcfa;
         }
@@ -979,7 +1019,7 @@ const selectedHistoryPeriod = historyPeriods.find(
         .search-icon {
           position: absolute;
           top: 50%;
-          left: 13px;
+          left: 14px;
           transform: translateY(-50%);
           color: #9aa49b;
           pointer-events: none;
@@ -987,10 +1027,10 @@ const selectedHistoryPeriod = historyPeriods.find(
 
         .search-field {
           width: 100%;
-          min-height: 41px;
-          padding: 0 13px 0 38px;
-          border: 1px solid #e4e9e2;
-          border-radius: 9px;
+          min-height: 44px;
+          padding: 0 14px 0 40px;
+          border: 1px solid #e2e8e1;
+          border-radius: 10px;
           outline: none;
           background: white;
           color: var(--ink);
@@ -1010,16 +1050,16 @@ const selectedHistoryPeriod = historyPeriods.find(
 
         .filter-wrap {
           position: relative;
-          width: 190px;
+          width: 205px;
         }
 
         .filter-field {
           width: 100%;
-          min-height: 41px;
-          padding: 0 35px 0 12px;
+          min-height: 44px;
+          padding: 0 36px 0 13px;
           appearance: none;
-          border: 1px solid #e4e9e2;
-          border-radius: 9px;
+          border: 1px solid #e2e8e1;
+          border-radius: 10px;
           outline: none;
           background: white;
           color: #526157;
@@ -1034,7 +1074,7 @@ const selectedHistoryPeriod = historyPeriods.find(
         }
 
         .employee-count {
-          padding: 7px 11px;
+          padding: 8px 12px;
           border: 1px solid #e0eae1;
           border-radius: 20px;
           background: #edf4ef;
@@ -1044,18 +1084,18 @@ const selectedHistoryPeriod = historyPeriods.find(
           white-space: nowrap;
         }
 
-        /* EMPLOYEE CARD */
+        /* EMPLOYEE CARDS */
 
         .employee-list {
           display: grid;
-          gap: 12px;
-          padding: 17px;
+          gap: 13px;
+          padding: 20px;
         }
 
         .employee-card {
           overflow: hidden;
           border: 1px solid #e7ece5;
-          border-radius: 14px;
+          border-radius: 15px;
           background: white;
           transition: .22s ease;
         }
@@ -1071,13 +1111,13 @@ const selectedHistoryPeriod = historyPeriods.find(
           justify-content: space-between;
           flex-wrap: wrap;
           gap: 12px;
-          padding: 16px 17px;
+          padding: 17px 19px;
         }
 
         .employee-identity {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 13px;
           min-width: 0;
         }
 
@@ -1085,11 +1125,11 @@ const selectedHistoryPeriod = historyPeriods.find(
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 42px;
-          height: 42px;
+          width: 45px;
+          height: 45px;
           flex-shrink: 0;
           border: 1px solid #e1ebe2;
-          border-radius: 12px;
+          border-radius: 13px;
           background: linear-gradient(145deg, #f2f7f2, #e9f1e9);
           color: var(--green);
         }
@@ -1100,10 +1140,11 @@ const selectedHistoryPeriod = historyPeriods.find(
           font-size: 13px;
           font-weight: 800;
           letter-spacing: -.02em;
+          overflow-wrap: anywhere;
         }
 
         .employee-code {
-          margin-top: 4px;
+          margin-top: 5px;
           color: #929d94;
           font-size: 10px;
         }
@@ -1113,7 +1154,7 @@ const selectedHistoryPeriod = historyPeriods.find(
           align-items: center;
           justify-content: center;
           gap: 5px;
-          padding: 6px 10px;
+          padding: 7px 11px;
           border-radius: 20px;
           font-size: 9px;
           font-weight: 800;
@@ -1138,31 +1179,32 @@ const selectedHistoryPeriod = historyPeriods.find(
         .employee-details {
           display: grid;
           grid-template-columns: repeat(6, minmax(0, 1fr));
-          gap: 8px;
-          padding: 0 17px 16px;
+          gap: 9px;
+          padding: 0 19px 18px;
         }
 
         .detail-box {
           min-width: 0;
-          padding: 11px 10px;
+          padding: 12px 11px;
           border: 1px solid #edf0eb;
-          border-radius: 9px;
+          border-radius: 10px;
           background: #fafbf9;
         }
 
         .detail-label {
+          margin: 0;
           color: #879188;
           font-size: 9px;
           font-weight: 700;
-          line-height: 1.4;
+          line-height: 1.5;
         }
 
         .detail-value {
-          margin-top: 7px;
+          margin: 8px 0 0;
           color: var(--ink);
           font-size: 11px;
           font-weight: 800;
-          line-height: 1.4;
+          line-height: 1.5;
           overflow-wrap: anywhere;
           font-variant-numeric: tabular-nums;
         }
@@ -1181,8 +1223,8 @@ const selectedHistoryPeriod = historyPeriods.find(
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
-          gap: 12px;
-          padding: 12px 17px;
+          gap: 13px;
+          padding: 13px 19px;
           border-top: 1px solid #edf0eb;
           background: #fcfdfb;
         }
@@ -1190,23 +1232,23 @@ const selectedHistoryPeriod = historyPeriods.find(
         .employee-note {
           display: flex;
           align-items: flex-start;
-          gap: 7px;
-          max-width: 440px;
+          gap: 8px;
+          max-width: 470px;
           color: #849087;
           font-size: 10px;
-          line-height: 1.6;
+          line-height: 1.7;
         }
 
         .employee-note svg {
           flex-shrink: 0;
-          margin-top: 1px;
+          margin-top: 2px;
         }
 
         .paid-info {
           display: flex;
           align-items: center;
-          gap: 8px;
-          padding: 12px 17px;
+          gap: 9px;
+          padding: 13px 19px;
           border-top: 1px solid #e1ebe2;
           background: #f3f8f3;
           color: var(--green);
@@ -1219,15 +1261,16 @@ const selectedHistoryPeriod = historyPeriods.find(
           color: #849087;
           text-align: center;
           font-size: 11px;
+          line-height: 1.7;
         }
 
         .empty-icon {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 45px;
-          height: 45px;
-          margin: 0 auto 12px;
+          width: 47px;
+          height: 47px;
+          margin: 0 auto 13px;
           border-radius: 13px;
           background: #f1f4f0;
           color: #849087;
@@ -1250,10 +1293,10 @@ const selectedHistoryPeriod = historyPeriods.find(
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 36px;
-          height: 36px;
+          width: 38px;
+          height: 38px;
           flex-shrink: 0;
-          border-radius: 10px;
+          border-radius: 11px;
           background: #edf4ef;
           color: var(--green);
         }
@@ -1270,10 +1313,10 @@ const selectedHistoryPeriod = historyPeriods.find(
           margin-top: 9px;
           color: #66746a;
           font-size: 10px;
-          line-height: 1.6;
+          line-height: 1.7;
         }
 
-        /* HISTORY */
+        /* HISTORY TABLE */
 
         .history-wrap {
           overflow-x: auto;
@@ -1288,8 +1331,8 @@ const selectedHistoryPeriod = historyPeriods.find(
         }
 
         .history-table th {
-          padding: 13px 16px;
-          background: #f7f9f6;
+          padding: 14px 17px;
+          background: #f5f7f3;
           color: #78847a;
           font-size: 9px;
           font-weight: 800;
@@ -1299,7 +1342,7 @@ const selectedHistoryPeriod = historyPeriods.find(
         }
 
         .history-table td {
-          padding: 14px 16px;
+          padding: 15px 17px;
           border-top: 1px solid #edf0eb;
           color: #526157;
           font-size: 10px;
@@ -1321,7 +1364,7 @@ const selectedHistoryPeriod = historyPeriods.find(
         }
 
         .history-code {
-          margin-top: 4px;
+          margin-top: 5px;
           color: #929d94;
           font-size: 9px;
         }
@@ -1337,36 +1380,388 @@ const selectedHistoryPeriod = historyPeriods.find(
           white-space: nowrap;
         }
 
-        .history-empty {
-          padding: 35px 20px;
-          color: #849087;
-          text-align: center;
-          font-size: 11px;
+        .history-deduction {
+          color: #a66e42 !important;
+          white-space: nowrap;
         }
 
-        @media (max-width: 1000px) {
+        .history-empty {
+          display: grid;
+          justify-items: center;
+          gap: 9px;
+          padding: 45px 20px;
+          color: #849087;
+          text-align: center;
+          font-size: 10px;
+        }
+
+        .history-empty strong {
+          color: #526157;
+          font-size: 12px;
+        }
+
+        .history-empty-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 47px;
+          height: 47px;
+          margin-bottom: 3px;
+          border-radius: 13px;
+          background: #f1f4f0;
+          color: #849087;
+        }
+
+        .history-loading-icon {
+          animation: history-spin 1s linear infinite;
+        }
+
+        @keyframes history-spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        /* HISTORY PERIOD LIST */
+
+        .history-period-list {
+          display: grid;
+          gap: 12px;
+          padding: 20px;
+        }
+
+        .history-list-intro {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 5px;
+        }
+
+        .history-list-intro strong {
+          color: var(--ink);
+          font-family: var(--font-manrope), sans-serif;
+          font-size: 13px;
+          font-weight: 800;
+        }
+
+        .history-list-intro p {
+          margin: 5px 0 0;
+          color: #849087;
+          font-size: 10px;
+          line-height: 1.6;
+        }
+
+        .history-list-intro > span {
+          padding: 7px 11px;
+          border-radius: 20px;
+          background: #edf4ef;
+          color: var(--green);
+          font-size: 9px;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .history-period-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 15px;
+          width: 100%;
+          padding: 17px;
+          border: 1px solid var(--line);
+          border-radius: 14px;
+          background: white;
+          color: var(--ink);
+          text-align: left;
+          cursor: pointer;
+          transition: .2s ease;
+        }
+
+        .history-period-card:hover {
+          transform: translateY(-2px);
+          border-color: #b9cfbd;
+          background: #fbfdfb;
+          box-shadow: 0 7px 18px rgba(23,75,54,.06);
+        }
+
+        .history-period-left {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          min-width: 0;
+        }
+
+        .history-period-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 45px;
+          height: 45px;
+          flex-shrink: 0;
+          border-radius: 12px;
+          background: #edf4ef;
+          color: var(--green);
+        }
+
+        .history-period-info {
+          min-width: 0;
+        }
+
+        .history-period-number {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          margin-bottom: 6px;
+          color: #929d94;
+          font-size: 8px;
+          font-weight: 800;
+          letter-spacing: .09em;
+        }
+
+        .history-period-number span {
+          color: #a7803f;
+        }
+
+        .history-period-info > strong {
+          display: block;
+          color: var(--ink);
+          font-family: var(--font-manrope), sans-serif;
+          font-size: 12px;
+          font-weight: 800;
+        }
+
+        .history-period-meta {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 11px;
+          margin-top: 9px;
+        }
+
+        .history-period-meta span {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          color: #849087;
+          font-size: 9px;
+          font-weight: 600;
+        }
+
+        .history-period-meta .history-meta-paid {
+          color: #39845a;
+        }
+
+        .history-period-meta .history-meta-draft {
+          color: #a7803f;
+        }
+
+        .history-period-right {
+          min-width: 145px;
+          text-align: right;
+        }
+
+        .history-period-total-label {
+          color: #929d94;
+          font-size: 8px;
+          font-weight: 800;
+          letter-spacing: .07em;
+        }
+
+        .history-period-right > strong {
+          display: block;
+          margin-top: 7px;
+          color: var(--green);
+          font-family: var(--font-manrope), sans-serif;
+          font-size: 14px;
+          font-weight: 800;
+        }
+
+        .history-period-status {
+          display: inline-flex;
+          margin-top: 8px;
+          padding: 6px 9px;
+          border-radius: 20px;
+          font-size: 8px;
+          font-weight: 800;
+        }
+
+        .history-period-status.completed {
+          background: #edf4ef;
+          color: #39845a;
+        }
+
+        .history-period-status.pending {
+          background: #f8f2e8;
+          color: #9a753e;
+        }
+
+        .history-period-arrow {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 31px;
+          height: 31px;
+          flex-shrink: 0;
+          border-radius: 9px;
+          background: #f4f6f2;
+          color: #718075;
+          transform: rotate(-90deg);
+        }
+
+        .history-back-button {
+          min-height: 37px;
+          flex-shrink: 0;
+          padding: 0 12px;
+          border: 1px solid #dfe8df;
+          border-radius: 9px;
+          background: #f7faf6;
+          color: var(--green);
+          font-size: 9px;
+          font-weight: 800;
+          cursor: pointer;
+          transition: .2s ease;
+        }
+
+        .history-back-button:hover {
+          border-color: #b9cfbd;
+          background: #edf4ef;
+        }
+
+        /* HISTORY DETAIL */
+
+        .history-detail-summary {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 11px;
+          padding: 19px 21px;
+          border-bottom: 1px solid #edf0eb;
+          background: #fbfcfa;
+        }
+
+        .history-detail-item {
+          display: grid;
+          gap: 8px;
+          min-width: 0;
+          padding: 14px;
+          border: 1px solid #e8ece6;
+          border-radius: 11px;
+          background: white;
+        }
+
+        .history-detail-item span {
+          color: #849087;
+          font-size: 9px;
+          font-weight: 700;
+        }
+
+        .history-detail-item strong {
+          color: var(--ink);
+          font-size: 12px;
+          font-weight: 800;
+          overflow-wrap: anywhere;
+        }
+
+        .history-detail-item .history-green {
+          color: var(--green);
+        }
+
+        .history-detail-item .history-gold {
+          color: #a7803f;
+        }
+
+        .history-detail-heading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 19px 21px 13px;
+        }
+
+        .history-detail-heading h3 {
+          margin: 0;
+          color: var(--ink);
+          font-family: var(--font-manrope), sans-serif;
+          font-size: 13px;
+          font-weight: 800;
+          text-align: left;
+        }
+
+        .history-detail-heading p {
+          margin: 5px 0 0;
+          color: #849087;
+          font-size: 10px;
+          line-height: 1.6;
+          text-align: left;
+        }
+
+        .history-detail-heading > span {
+          color: #849087;
+          font-size: 9px;
+          font-weight: 700;
+        }
+
+        .history-total-footer {
+          display: flex;
+          justify-content: flex-end;
+          padding: 16px 21px;
+          border-top: 1px solid #edf0eb;
+          background: #f8faf7;
+        }
+
+        .history-total-footer > div {
+          display: grid;
+          gap: 6px;
+          text-align: right;
+        }
+
+        .history-total-footer span {
+          color: #849087;
+          font-size: 9px;
+          font-weight: 700;
+        }
+
+        .history-total-footer strong {
+          color: var(--green);
+          font-family: var(--font-manrope), sans-serif;
+          font-size: 18px;
+          font-weight: 800;
+        }
+
+        /* RESPONSIVE */
+
+        @media (max-width: 1100px) {
+          .stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
           .employee-details {
             grid-template-columns: repeat(3, minmax(0, 1fr));
           }
 
-          .stats-grid {
+          .history-detail-summary {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
 
         @media (max-width: 700px) {
+          .payroll-page {
+            padding: 20px;
+          }
+
           .page-header {
             align-items: flex-start;
+            padding: 23px 20px;
           }
 
           .page-title {
-            font-size: 25px;
+            font-size: 27px;
           }
 
           .overview-card {
             grid-template-columns: 1fr;
             gap: 20px;
-            padding: 21px;
+            padding: 22px;
           }
 
           .overview-side {
@@ -1375,82 +1770,102 @@ const selectedHistoryPeriod = historyPeriods.find(
 
           .period-content {
             grid-template-columns: 1fr;
-            padding: 16px;
+            padding: 19px 20px;
           }
 
           .panel-header {
-            padding: 15px 16px;
+            padding: 18px 20px;
           }
 
           .employee-toolbar {
-            padding: 13px;
+            padding: 14px 16px;
           }
 
           .employee-list {
-            padding: 11px;
+            padding: 14px;
           }
 
           .employee-top {
-            padding: 14px;
+            padding: 15px;
           }
 
           .employee-details {
-            padding: 0 14px 14px;
+            padding: 0 15px 15px;
           }
 
           .employee-footer {
-            padding: 12px 14px;
+            padding: 13px 15px;
           }
 
           .information-box {
-            padding: 14px;
+            padding: 15px;
+          }
+
+          .history-period-list {
+            padding: 15px;
+          }
+
+          .history-detail-summary {
+            padding: 15px;
+          }
+
+          .history-detail-heading {
+            padding: 16px 17px 12px;
           }
         }
 
         @media (max-width: 480px) {
+          .payroll-page {
+            padding: 14px;
+          }
+
           .page-header {
-            gap: 10px;
+            flex-direction: column;
+            gap: 15px;
+            padding: 21px 18px;
+            border-radius: 16px;
           }
 
           .page-title {
-            font-size: 22px;
+            font-size: 24px;
           }
 
           .page-description {
-            max-width: 260px;
+            max-width: 100%;
             font-size: 10px;
           }
 
           .refresh-button {
-            min-height: 36px;
-            padding: 0 10px;
+            min-height: 37px;
+            padding: 0 12px;
             font-size: 9px;
           }
 
           .overview-card {
-            padding: 18px;
-            border-radius: 15px;
+            padding: 19px;
+            border-radius: 16px;
           }
 
           .overview-amount {
-            font-size: 26px;
+            font-size: 27px;
           }
 
           .overview-mini {
-            padding: 11px;
+            padding: 12px;
           }
 
           .overview-mini-value {
-            font-size: 14px;
+            font-size: 13px;
           }
 
           .stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 9px;
           }
 
           .stat-card {
-            padding: 12px;
-            border-radius: 12px;
+            padding: 14px;
+            border-radius: 13px;
           }
 
           .stat-label {
@@ -1458,34 +1873,85 @@ const selectedHistoryPeriod = historyPeriods.find(
           }
 
           .stat-icon {
-            width: 30px;
-            height: 30px;
+            width: 34px;
+            height: 34px;
           }
 
           .stat-value {
-            margin-top: 11px;
+            margin-top: 12px;
             font-size: 21px;
           }
 
           .stat-value.compact {
-            font-size: 13px;
+            font-size: 14px;
           }
 
           .stat-note {
             font-size: 8px;
+            line-height: 1.5;
+          }
+
+          .panel {
+            border-radius: 15px;
+          }
+
+          .panel-header {
+            align-items: flex-start;
+            padding: 16px;
+          }
+
+          .panel-icon {
+            width: 39px;
+            height: 39px;
+          }
+
+          .panel-title {
+            font-size: 14px;
+          }
+
+          .panel-subtitle {
+            font-size: 9px;
+          }
+
+          .period-content {
+            padding: 16px;
+          }
+
+          .period-footer {
+            align-items: stretch;
+            padding: 14px 16px;
+          }
+
+          .period-footer .primary-btn {
+            width: 100%;
+          }
+
+          .toolbar-search {
+            flex-basis: 100%;
+            min-width: 0;
           }
 
           .filter-wrap {
             width: 100%;
           }
 
-          .toolbar-search {
-            flex-basis: 100%;
+          .employee-count {
+            font-size: 9px;
+          }
+
+          .employee-list {
+            padding: 10px;
+          }
+
+          .employee-top {
+            align-items: flex-start;
+            padding: 13px;
           }
 
           .employee-details {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 7px;
+            padding: 0 13px 13px;
           }
 
           .detail-box {
@@ -1500,450 +1966,116 @@ const selectedHistoryPeriod = historyPeriods.find(
             font-size: 10px;
           }
 
-          .employee-top {
-            align-items: flex-start;
-          }
-
           .employee-footer {
             align-items: stretch;
+            padding: 12px 13px;
           }
 
           .employee-footer .primary-btn {
             width: 100%;
           }
 
-          .period-footer {
-            align-items: stretch;
+          .employee-note {
+            font-size: 9px;
           }
 
-          .period-footer .primary-btn {
-            width: 100%;
+          .history-period-card {
+            align-items: flex-start;
+            flex-wrap: wrap;
+            padding: 13px;
           }
 
-          /* CLICKABLE PAYROLL HISTORY */
+          .history-period-left {
+            gap: 10px;
+          }
 
-.history-period-list {
-  display: grid;
-  gap: 11px;
-  padding: 18px;
-}
+          .history-period-icon {
+            width: 39px;
+            height: 39px;
+          }
 
-.history-list-intro {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 4px;
-}
+          .history-period-info > strong {
+            font-size: 10px;
+          }
 
-.history-list-intro strong {
-  color: #26352c;
-  font-family: var(--font-manrope), sans-serif;
-  font-size: 12px;
-  font-weight: 800;
-}
+          .history-period-meta {
+            gap: 7px;
+          }
 
-.history-list-intro p {
-  margin-top: 4px;
-  color: #849087;
-  font-size: 10px;
-}
+          .history-period-meta span {
+            font-size: 8px;
+          }
 
-.history-list-intro > span {
-  padding: 6px 10px;
-  border-radius: 20px;
-  background: #edf4ef;
-  color: #174b36;
-  font-size: 9px;
-  font-weight: 800;
-  white-space: nowrap;
-}
+          .history-period-right {
+            min-width: 0;
+            margin-left: 49px;
+            text-align: left;
+          }
 
-.history-period-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 15px;
-  width: 100%;
-  padding: 16px;
-  border: 1px solid #e8ece6;
-  border-radius: 13px;
-  background: #fff;
-  color: #26352c;
-  text-align: left;
-  cursor: pointer;
-  transition: .2s ease;
-}
+          .history-period-arrow {
+            margin-left: auto;
+          }
 
-.history-period-card:hover {
-  transform: translateY(-2px);
-  border-color: #b9cfbd;
-  background: #fbfdfb;
-  box-shadow: 0 7px 18px rgba(23,75,54,.06);
-}
+          .history-detail-summary {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 7px;
+            padding: 13px;
+          }
 
-.history-period-left {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  min-width: 0;
-}
+          .history-detail-item {
+            padding: 10px;
+          }
 
-.history-period-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 43px;
-  height: 43px;
-  flex-shrink: 0;
-  border-radius: 12px;
-  background: #edf4ef;
-  color: #174b36;
-}
+          .history-detail-item strong {
+            font-size: 10px;
+          }
 
-.history-period-info {
-  min-width: 0;
-}
+          .history-back-button {
+            min-height: 33px;
+            font-size: 8px;
+          }
 
-.history-period-number {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 5px;
-  color: #929d94;
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: .09em;
-}
+          .history-detail-heading {
+            padding: 14px;
+          }
 
-.history-period-number span {
-  color: #a7803f;
-}
-
-.history-period-info > strong {
-  display: block;
-  color: #26352c;
-  font-family: var(--font-manrope), sans-serif;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.history-period-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 9px;
-}
-
-.history-period-meta span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: #849087;
-  font-size: 9px;
-  font-weight: 600;
-}
-
-.history-period-meta .history-meta-paid {
-  color: #39845a;
-}
-
-.history-period-meta .history-meta-draft {
-  color: #a7803f;
-}
-
-.history-period-right {
-  min-width: 135px;
-  text-align: right;
-}
-
-.history-period-total-label {
-  color: #929d94;
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: .07em;
-}
-
-.history-period-right > strong {
-  display: block;
-  margin-top: 6px;
-  color: #174b36;
-  font-family: var(--font-manrope), sans-serif;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.history-period-status {
-  display: inline-flex;
-  margin-top: 7px;
-  padding: 5px 8px;
-  border-radius: 20px;
-  font-size: 8px;
-  font-weight: 800;
-}
-
-.history-period-status.completed {
-  background: #edf4ef;
-  color: #39845a;
-}
-
-.history-period-status.pending {
-  background: #f8f2e8;
-  color: #9a753e;
-}
-
-.history-period-arrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 29px;
-  height: 29px;
-  flex-shrink: 0;
-  border-radius: 8px;
-  background: #f4f6f2;
-  color: #718075;
-  transform: rotate(-90deg);
-}
-
-.history-back-button {
-  min-height: 35px;
-  padding: 0 11px;
-  border: 1px solid #dfe8df;
-  border-radius: 9px;
-  background: #f7faf6;
-  color: #174b36;
-  font-size: 9px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: .2s ease;
-}
-
-.history-back-button:hover {
-  border-color: #b9cfbd;
-  background: #edf4ef;
-}
-
-.history-detail-summary {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  padding: 17px 19px;
-  border-bottom: 1px solid #edf0eb;
-  background: #fbfcfa;
-}
-
-.history-detail-item {
-  display: grid;
-  gap: 7px;
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid #e8ece6;
-  border-radius: 10px;
-  background: white;
-}
-
-.history-detail-item span {
-  color: #849087;
-  font-size: 9px;
-  font-weight: 700;
-}
-
-.history-detail-item strong {
-  color: #26352c;
-  font-size: 12px;
-  font-weight: 800;
-  overflow-wrap: anywhere;
-}
-
-.history-detail-item .history-green {
-  color: #174b36;
-}
-
-.history-detail-item .history-gold {
-  color: #a7803f;
-}
-
-.history-detail-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 17px 19px 12px;
-}
-
-.history-detail-heading h3 {
-  color: #26352c;
-  font-family: var(--font-manrope), sans-serif;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.history-detail-heading p {
-  margin-top: 4px;
-  color: #849087;
-  font-size: 10px;
-}
-
-.history-detail-heading > span {
-  color: #849087;
-  font-size: 9px;
-  font-weight: 700;
-}
-
-.history-deduction {
-  color: #a66e42 !important;
-  white-space: nowrap;
-}
-
-.history-total-footer {
-  display: flex;
-  justify-content: flex-end;
-  padding: 15px 19px;
-  border-top: 1px solid #edf0eb;
-  background: #f8faf7;
-}
-
-.history-total-footer > div {
-  display: grid;
-  gap: 5px;
-  text-align: right;
-}
-
-.history-total-footer span {
-  color: #849087;
-  font-size: 9px;
-  font-weight: 700;
-}
-
-.history-total-footer strong {
-  color: #174b36;
-  font-family: var(--font-manrope), sans-serif;
-  font-size: 17px;
-  font-weight: 800;
-}
-
-.history-empty {
-  display: grid;
-  justify-items: center;
-  gap: 9px;
-  padding: 45px 20px;
-  color: #849087;
-  text-align: center;
-  font-size: 10px;
-}
-
-.history-empty strong {
-  color: #526157;
-  font-size: 12px;
-}
-
-.history-empty-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 46px;
-  margin-bottom: 3px;
-  border-radius: 13px;
-  background: #f1f4f0;
-  color: #849087;
-}
-
-.history-loading-icon {
-  animation: history-spin 1s linear infinite;
-}
-
-@keyframes history-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (max-width: 700px) {
-  .history-period-card {
-    align-items: flex-start;
-    flex-wrap: wrap;
-    padding: 13px;
-  }
-
-  .history-period-right {
-    min-width: 0;
-    margin-left: 56px;
-    text-align: left;
-  }
-
-  .history-period-arrow {
-    margin-left: auto;
-  }
-
-  .history-detail-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: 13px;
-  }
-
-  .history-back-button {
-    font-size: 8px;
-  }
-}
-
-@media (max-width: 420px) {
-  .history-period-info > strong {
-    font-size: 10px;
-  }
-
-  .history-period-meta {
-    gap: 7px;
-  }
-
-  .history-period-meta span {
-    font-size: 8px;
-  }
-
-  .history-detail-summary {
-    gap: 7px;
-  }
-
-  .history-detail-item {
-    padding: 10px;
-  }
-
-  .history-detail-item strong {
-    font-size: 10px;
-  }
-}
+          .history-total-footer {
+            padding: 14px;
+          }
         }
-      `}</style>
+
+        @media (max-width: 360px) {
+          .stats-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .overview-side {
+            grid-template-columns: 1fr;
+          }
+
+          .employee-details {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+`}</style>
 
       {/* HEADER */}
       <header className="page-header">
         <div>
           <div className="eyebrow">
-            <span className="eyebrow-dot" />
-            MANAJEMEN KEUANGAN PEGAWAI
+          
+            MANAJEMEN KEUANGAN KARYAWAN
           </div>
 
           <h1 className="page-title">Gaji Mingguan</h1>
 
           <p className="page-description">
-            Kelola penggajian, potongan, piutang, dan pembayaran pegawai.
+            Kelola penggajian, potongan, piutang, dan pembayaran karyawan.
           </p>
 
-          <div className="gold-line" />
+       
         </div>
 
-        <button
-          type="button"
-          onClick={() => void loadData()}
-          disabled={loading}
-          className="refresh-button"
-        >
-          <RefreshCw
-            size={14}
-            className={loading ? "animate-spin" : ""}
-          />
-          Muat ulang
-        </button>
       </header>
 
       {/* NOTIFICATIONS */}
@@ -1974,7 +2106,7 @@ const selectedHistoryPeriod = historyPeriods.find(
           </div>
 
           <p className="overview-caption">
-            Perkiraan total gaji yang akan diterima seluruh pegawai
+            Perkiraan total gaji yang akan diterima seluruh karyawan
             setelah potongan ketidakhadiran dan estimasi piutang.
           </p>
         </div>
@@ -1993,7 +2125,7 @@ const selectedHistoryPeriod = historyPeriods.find(
             <div className="overview-mini-value">
               {rupiah(totalOutstandingDebt)}
             </div>
-            <div className="overview-mini-note">Seluruh pegawai aktif</div>
+            <div className="overview-mini-note">Seluruh karyawan aktif</div>
           </div>
         </div>
       </section>
@@ -2002,9 +2134,9 @@ const selectedHistoryPeriod = historyPeriods.find(
       <section className="stats-grid">
         <StatCard
           icon={<Users size={17} />}
-          label="Pegawai Aktif"
+          label="Karyawan Aktif"
           value={String(employees.length)}
-          note="Total pegawai aktif"
+          note="Total karyawan aktif"
           tone="green"
         />
 
@@ -2070,7 +2202,7 @@ const selectedHistoryPeriod = historyPeriods.find(
                 ))}
               </select>
 
-              <ChevronDown size={15} className="field-icon" />
+          
             </div>
           </div>
 
@@ -2125,7 +2257,7 @@ const selectedHistoryPeriod = historyPeriods.find(
             </div>
 
             <div>
-              <h2 className="panel-title">Rincian Gaji Pegawai</h2>
+              <h2 className="panel-title">Rincian Gaji Karyawan</h2>
               <p className="panel-subtitle">
                 Periode {formatDate(selectedPeriod.start)} –{" "}
                 {formatDate(selectedPeriod.end)}
@@ -2134,19 +2266,19 @@ const selectedHistoryPeriod = historyPeriods.find(
           </div>
 
           <span className="employee-count">
-            {filteredEmployees.length} pegawai
+            {filteredEmployees.length} Karyawan
           </span>
         </div>
 
         {/* SEARCH AND FILTER */}
         <div className="employee-toolbar">
           <div className="toolbar-search">
-            <Search size={15} className="search-icon" />
+          
 
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Cari nama atau kode pegawai..."
+              placeholder="Cari nama atau kode karyawan..."
               className="search-field"
             />
           </div>
@@ -2163,7 +2295,7 @@ const selectedHistoryPeriod = historyPeriods.find(
               <option value="not-calculated">Belum dihitung</option>
             </select>
 
-            <ChevronDown size={14} className="field-icon" />
+        
           </div>
         </div>
 
@@ -2180,14 +2312,14 @@ const selectedHistoryPeriod = historyPeriods.find(
             <div className="empty-icon">
               <Users size={20} />
             </div>
-            Belum ada pegawai aktif.
+            Belum ada karyawan aktif.
           </div>
         ) : filteredEmployees.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">
               <Search size={20} />
             </div>
-            Tidak ada pegawai yang sesuai dengan pencarian.
+            Tidak ada karyawan yang sesuai dengan pencarian.
           </div>
         ) : (
           <div className="employee-list">
@@ -2235,7 +2367,7 @@ const selectedHistoryPeriod = historyPeriods.find(
                         </div>
 
                         <div className="employee-code">
-                          {employee.employee_code || "Tanpa kode pegawai"}
+                          {employee.employee_code || "Tanpa kode karyawan"}
                         </div>
                       </div>
                     </div>
@@ -2318,7 +2450,7 @@ const selectedHistoryPeriod = historyPeriods.find(
                         <CreditCard size={14} />
                         {payingId === payroll.id
                           ? "Memproses..."
-                          : "Bayar Pegawai"}
+                          : "Bayar karyawan"}
                       </button>
                     </div>
                   ) : (
@@ -2326,7 +2458,7 @@ const selectedHistoryPeriod = historyPeriods.find(
                       <div className="employee-note">
                         <Info size={14} />
                         <span>
-                          Pegawai ini akan masuk ke daftar penggajian setelah
+                          Karyawan ini akan masuk ke daftar penggajian setelah
                           tombol Hitung Gaji digunakan.
                         </span>
                       </div>
@@ -2339,33 +2471,7 @@ const selectedHistoryPeriod = historyPeriods.find(
         )}
       </section>
 
-      {/* INFORMATION */}
-      <section className="information-box">
-        <div className="information-icon">
-          <Info size={17} />
-        </div>
 
-        <div>
-          <div className="information-title">
-            Informasi Perhitungan Gaji
-          </div>
-
-          <div className="information-list">
-            <p>
-              • Gaji mingguan dikurangi otomatis sesuai jumlah hari tidak hadir.
-            </p>
-            <p>
-              • Potongan piutang dilakukan setelah potongan absen, dimulai dari piutang tertua.
-            </p>
-            <p>
-              • Saldo piutang baru benar-benar berkurang setelah admin menekan tombol Bayar Pegawai.
-            </p>
-            <p>
-              • Gaji yang sudah dibayar tersimpan sebagai catatan transaksi.
-            </p>
-          </div>
-        </div>
-      </section>
 
      {/* HISTORY */}
 <section className="panel history-panel">
@@ -2387,7 +2493,7 @@ const selectedHistoryPeriod = historyPeriods.find(
             ? `${formatDate(selectedHistoryPeriod.start)} – ${formatDate(
                 selectedHistoryPeriod.end
               )}`
-            : "Pilih periode untuk melihat rincian penggajian pegawai."}
+            : "Pilih periode untuk melihat rincian penggajian karyawan."}
         </p>
       </div>
     </div>
@@ -2422,21 +2528,21 @@ const selectedHistoryPeriod = historyPeriods.find(
     <>
       <div className="history-detail-summary">
         <div className="history-detail-item">
-          <span>Total pegawai</span>
-          <strong>{selectedHistoryPeriod.items.length} pegawai</strong>
+          <span>Total karyawan</span>
+          <strong>{selectedHistoryPeriod.items.length} karyawan</strong>
         </div>
 
         <div className="history-detail-item">
           <span>Sudah dibayar</span>
           <strong className="history-green">
-            {selectedHistoryPeriod.paid} pegawai
+            {selectedHistoryPeriod.paid} karyawan
           </strong>
         </div>
 
         <div className="history-detail-item">
           <span>Menunggu pembayaran</span>
           <strong className="history-gold">
-            {selectedHistoryPeriod.draft} pegawai
+            {selectedHistoryPeriod.draft} karyawan
           </strong>
         </div>
 
@@ -2450,9 +2556,9 @@ const selectedHistoryPeriod = historyPeriods.find(
 
       <div className="history-detail-heading">
         <div>
-          <h3>Rincian Pegawai</h3>
+          <h3>Rincian Karyawan</h3>
           <p>
-            Rincian gaji seluruh pegawai pada periode ini.
+            Rincian gaji seluruh karyawan pada periode ini.
           </p>
         </div>
 
@@ -2463,7 +2569,7 @@ const selectedHistoryPeriod = historyPeriods.find(
         <table className="history-table">
           <thead>
             <tr>
-              <th>Pegawai</th>
+              <th>Karyawan</th>
               <th>Gaji kotor</th>
               <th>Potongan absen</th>
               <th>Potongan piutang</th>
@@ -2544,7 +2650,7 @@ const selectedHistoryPeriod = historyPeriods.find(
         <div>
           <strong>Daftar Periode</strong>
           <p>
-            Klik salah satu periode untuk melihat rincian gaji pegawai.
+            Klik salah satu periode untuk melihat rincian gaji karyawan.
           </p>
         </div>
 
@@ -2580,7 +2686,7 @@ const selectedHistoryPeriod = historyPeriods.find(
                 <div className="history-period-meta">
                   <span>
                     <Users size={12} />
-                    {period.items.length} pegawai
+                    {period.items.length} karyawan
                   </span>
 
                   <span className="history-meta-paid">

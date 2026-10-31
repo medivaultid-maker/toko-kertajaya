@@ -64,9 +64,9 @@ type PageKey =
   | "kasir"
   | "penjualan"
   | "laporan"
-  | "pegawai"
+  | "data-pegawai"
+  | "akun-pegawai"
   | "pengaturan"
-  | "karyawan"
   | "kehadiran"
   | "piutang"
   | "gaji";
@@ -82,10 +82,10 @@ const menu: {
   { key: "harga", label: "Persetujuan Harga", icon: Wallet },
   { key: "kasir", label: "Kasir", icon: ShoppingCart },
   { key: "penjualan", label: "Riwayat Penjualan", icon: ReceiptText },
-  { key: "karyawan", label: "Data Karyawan", icon: Users },
-  { key: "pegawai", label: "Akun Pegawai", icon: ShieldCheck },
+  { key: "data-pegawai", label: "Data Pegawai", icon: Users },
+  { key: "akun-pegawai", label: "Akun Pegawai", icon: ShieldCheck },
   { key: "kehadiran", label: "Kehadiran", icon: CalendarCheck },
-  { key: "piutang", label: "Piutang Karyawan", icon: HandCoins },
+  { key: "piutang", label: "Piutang Pegawai", icon: HandCoins },
   { key: "gaji", label: "Gaji Mingguan", icon: Wallet },
 ];
 
@@ -175,10 +175,10 @@ export default function Home() {
           .eq("is_active", true),
 
         supabase
-          .from("products")
-          .select("id, stock_quantity, min_stock")
-          .eq("is_active", true)
-          .gt("min_stock", 0),
+  .from("products")
+  .select("id, stock_quantity")
+  .eq("is_active", true)
+  .lt("stock_quantity", 3),
 
         supabase
           .from("sales")
@@ -211,9 +211,9 @@ export default function Home() {
           .eq("is_active", true),
 
         supabase
-          .from("employee_attendance")
-          .select("status")
-          .eq("work_date", today),
+  .from("attendance")
+  .select("id, employee_id")
+  .eq("attendance_date", today),
 
         supabase
           .from("employee_debts")
@@ -233,7 +233,7 @@ export default function Home() {
         { name: "Penjualan", result: salesResult },
         { name: "Laba kotor", result: profitResult },
         { name: "Kulakan", result: intakeResult },
-        { name: "Karyawan", result: employeesResult },
+        { name: "pegawai", result: employeesResult },
         { name: "Kehadiran", result: attendanceResult },
         { name: "Piutang", result: debtResult },
         { name: "Gaji", result: payrollResult },
@@ -256,11 +256,7 @@ export default function Home() {
         ? []
         : lowStockResult.data ?? [];
 
-      const lowStockCount = lowStockProducts.filter(
-        (item) =>
-          Number(item.stock_quantity ?? 0) <=
-          Number(item.min_stock ?? 0)
-      ).length;
+      const lowStockCount = lowStockProducts.length;
 
       const totalSales = sales.reduce(
         (sum, item) => sum + Number(item.total ?? 0),
@@ -296,13 +292,13 @@ export default function Home() {
           ? 0
           : employeesResult.count ?? 0,
 
-        presentEmployees: attendance.filter(
-          (item) => item.status === "present"
-        ).length,
+       presentEmployees: attendance.length,
 
-        absentEmployees: attendance.filter(
-          (item) => item.status === "absent"
-        ).length,
+absentEmployees: Math.max(
+  0,
+  (employeesResult.error ? 0 : employeesResult.count ?? 0) -
+    attendance.length
+),
 
         unpaidDebt: totalDebt,
 
@@ -521,69 +517,32 @@ return () => {
     loadDashboardStats,
   ]);
 
-  // =====================================================
-  // LOGOUT
-  // =====================================================
+// =====================================================
+// LOGOUT
+// =====================================================
 
-  async function handleLogout() {
-    const { error } = await supabase.auth.signOut();
+async function handleLogout() {
+  const { error } = await supabase.auth.signOut();
 
-    if (error) {
-      alert(`Gagal logout: ${error.message}`);
-      return;
-    }
-
-    setLoggedIn(false);
-    setUserName("");
-    setUserRole("");
-    setShowUserMenu(false);
-
-    window.location.href = "/login";
+  if (error) {
+    alert(`Gagal logout: ${error.message}`);
+    return;
   }
 
-  function handleMenuClick(key: PageKey) {
-    setActive(key);
-    setMobileMenu(false);
-    setShowUserMenu(false);
-  }
+  setLoggedIn(false);
+  setUserName("");
+  setUserRole("");
+  setShowUserMenu(false);
 
-  // =====================================================
-  // TAMPILAN LOADING
-  // =====================================================
+  router.replace("/login");
+  router.refresh();
+}
 
-  if (authLoading) {
-    return (
-      <main className="loading-screen">
-        <div className="loading-content">
-          <div className="loading-logo">
-            <Store size={28} />
-          </div>
-
-          <strong>Toko Rosyidah</strong>
-          <span>Memeriksa sesi pengguna...</span>
-
-          <div className="loading-spinner" />
-        </div>
-      </main>
-    );
-  }
-
-  if (!loggedIn) {
-    return (
-      <main className="loading-screen">
-        <div className="loading-content">
-          <div className="loading-logo">
-            <Store size={28} />
-          </div>
-
-          <strong>Toko Rosyidah</strong>
-          <span>Mengalihkan ke halaman login...</span>
-
-          <div className="loading-spinner" />
-        </div>
-      </main>
-    );
-  }
+function handleMenuClick(key: PageKey) {
+  setActive(key);
+  setMobileMenu(false);
+  setShowUserMenu(false);
+}
 
 // =====================================================
 // AKSES DASHBOARD OWNER
@@ -594,23 +553,17 @@ const isOwner = ["owner", "admin", "pemilik"].includes(
 );
 
 if (userRole === "employee") {
-  return (
-    <main className="loading-screen">
-      <div className="loading-content">
-        <strong>Mengarahkan ke Dashboard Karyawan...</strong>
-        <div className="loading-spinner" />
-      </div>
-    </main>
-  );
-}
+  router.replace("/pegawai");
 
-if (!isOwner) {
   return (
     <main className="loading-screen">
       <div className="loading-content">
-        <strong>Akses tidak diizinkan</strong>
-        <span>Dashboard ini khusus pemilik toko.</span>
-        <button onClick={handleLogout}>Keluar</button>
+        <div className="loading-logo">
+          <Store size={28} />
+        </div>
+        <strong>Toko Rosyidah</strong>
+        <span>Membuka dashboard pegawai...</span>
+        <div className="loading-spinner" />
       </div>
     </main>
   );
@@ -655,7 +608,7 @@ if (!isOwner) {
 
           <div className="brand-text">
             <strong>Toko Rosyidah</strong>
-            <span>Sistem Toko & Kasir</span>
+            <span>Sistem Toko</span>
           </div>
         </div>
 
@@ -925,13 +878,13 @@ if (!isOwner) {
                   />
 
                   <StatCard
-                    title="Karyawan Aktif"
+                    title="Pegawai Aktif"
                     value={
                       dashboardLoading
                         ? "Memuat..."
                         : stats.activeEmployees.toLocaleString("id-ID")
                     }
-                    note="Total karyawan aktif"
+                    note="Total pegawai aktif"
                     icon={<Users size={20} />}
                   />
 
@@ -942,7 +895,7 @@ if (!isOwner) {
                         ? "Memuat..."
                         : stats.presentEmployees.toLocaleString("id-ID")
                     }
-                    note="Karyawan tercatat hadir"
+                    note="Pegawai tercatat hadir"
                     icon={<CalendarCheck size={20} />}
                   />
 
@@ -953,7 +906,7 @@ if (!isOwner) {
                         ? "Memuat..."
                         : stats.absentEmployees.toLocaleString("id-ID")
                     }
-                    note="Karyawan tercatat tidak hadir"
+                    note="Pegawai tercatat tidak hadir"
                     icon={<Users size={20} />}
                   />
 
@@ -969,7 +922,7 @@ if (!isOwner) {
                   />
 
                   <StatCard
-                    title="Total Piutang Karyawan"
+                    title="Total Piutang Pegawai"
                     value={
                       dashboardLoading
                         ? "Memuat..."
@@ -1053,10 +1006,10 @@ if (!isOwner) {
             <KasirPage />
           ) : active === "penjualan" ? (
             <RiwayatPenjualanPage />
-          ) : active === "pegawai" ? (
-            <EmployeeAccountManagement />
-          ) : active === "karyawan" ? (
-            <EmployeeManagement />
+) : active === "akun-pegawai" ? (
+  <EmployeeAccountManagement />
+) : active === "data-pegawai" ? (
+  <EmployeeManagement />
           ) : active === "stok" ? (
             <ProductManagement />
           ) : active === "piutang" ? (

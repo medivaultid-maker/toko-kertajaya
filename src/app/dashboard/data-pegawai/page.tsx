@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -53,14 +52,14 @@ export default function EmployeeManagement() {
         .order("full_name", { ascending: true });
 
       if (loadError) {
-        setError(`Gagal memuat karyawan: ${loadError.message}`);
+        setError(`Gagal memuat pegawai: ${loadError.message}`);
         return;
       }
 
       setEmployees((data ?? []) as Employee[]);
     } catch (err) {
       setError(
-        `Gagal memuat karyawan: ${
+        `Gagal memuat pegawai: ${
           err instanceof Error ? err.message : "Terjadi kesalahan."
         }`
       );
@@ -126,7 +125,7 @@ export default function EmployeeManagement() {
     const weeklyWage = Number(employeeWage);
 
     if (!cleanName) {
-      return "Nama karyawan wajib diisi.";
+      return "Nama pegawai wajib diisi.";
     }
 
     if (
@@ -166,11 +165,11 @@ export default function EmployeeManagement() {
         });
 
       if (insertError) {
-        setError(`Gagal menambahkan karyawan: ${insertError.message}`);
+        setError(`Gagal menambahkan pegawai: ${insertError.message}`);
         return;
       }
 
-      setMessage(`Karyawan "${name.trim()}" berhasil ditambahkan.`);
+      setMessage(`pegawai "${name.trim()}" berhasil ditambahkan.`);
       resetForm();
       await loadEmployees();
     } catch (err) {
@@ -210,7 +209,7 @@ export default function EmployeeManagement() {
         .eq("id", editingId);
 
       if (updateError) {
-        setError(`Gagal memperbarui karyawan: ${updateError.message}`);
+        setError(`Gagal memperbarui pegawai: ${updateError.message}`);
         return;
       }
 
@@ -219,10 +218,10 @@ export default function EmployeeManagement() {
       cancelEdit();
       await loadEmployees();
 
-      setMessage(`Data karyawan "${updatedName}" berhasil diperbarui.`);
+      setMessage(`Data Karyawan "${updatedName}" berhasil diperbarui.`);
     } catch (err) {
       setError(
-        `Gagal memperbarui karyawan: ${
+        `Gagal memperbarui pegawai: ${
           err instanceof Error ? err.message : "Terjadi kesalahan."
         }`
       );
@@ -291,25 +290,39 @@ export default function EmployeeManagement() {
           display: flex;
           flex-direction: column;
           gap: 22px;
+          width: 100%;
           padding-bottom: 36px;
           color: var(--ink);
           font-family: var(--font-dm-sans), sans-serif;
         }
 
-        .hero {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          overflow: hidden;
-          padding: 30px 32px;
-          border: 1px solid #e5e9e1;
-          border-radius: 22px;
-          background:
-            radial-gradient(circle at 92% 10%, rgba(185,154,98,.13), transparent 28%),
-            linear-gradient(115deg, #ffffff 0%, #f5f8f3 100%);
-          box-shadow: 0 8px 28px rgba(24,55,37,.035);
+        * {
+          box-sizing: border-box;
+        }
+
+       .hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 24px;
+  min-height: 150px;
+  overflow: hidden;
+  padding: 30px 27px;
+  border: 1px solid #e5e9e1;
+  border-radius: 20px;
+  background:
+    radial-gradient(
+      circle at 92% 10%,
+      rgba(185, 154, 98, 0.13),
+      transparent 28%
+    ),
+    linear-gradient(115deg, #ffffff 0%, #f5f8f3 100%);
+  box-shadow: 0 8px 28px rgba(24, 55, 37, 0.035);
+}
+
+        .hero > div:first-child {
+          min-width: 0;
         }
 
         .hero::after {
@@ -319,7 +332,7 @@ export default function EmployeeManagement() {
           height: 180px;
           right: 90px;
           bottom: -125px;
-          border: 1px solid rgba(185,154,98,.24);
+          border: 1px solid rgba(185, 154, 98, 0.24);
           border-radius: 50%;
           pointer-events: none;
         }
@@ -339,6 +352,7 @@ export default function EmployeeManagement() {
           font-size: clamp(27px, 3vw, 35px);
           font-weight: 800;
           letter-spacing: -1.4px;
+          line-height: 1.25;
         }
 
         .subtitle {
@@ -351,10 +365,14 @@ export default function EmployeeManagement() {
         .count-chip {
           position: relative;
           z-index: 1;
-          padding: 12px 17px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 44px;
+          padding: 12px 19px;
           border: 1px solid #dce8de;
-          border-radius: 12px;
-          background: rgba(255,255,255,.85);
+          border-radius: 11px;
+          background: rgba(255, 255, 255, 0.85);
           color: var(--emerald);
           font-size: 12px;
           font-weight: 800;
@@ -364,24 +382,31 @@ export default function EmployeeManagement() {
         .stats {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 14px;
+          align-items: stretch;
+          gap: 16px;
         }
 
         .stat {
           position: relative;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
           min-width: 0;
+          min-height: 135px;
           overflow: hidden;
-          padding: 21px;
+          padding: 22px 24px;
           border: 1px solid var(--line);
-          border-radius: 17px;
+          border-radius: 16px;
           background: #fff;
-          box-shadow: 0 5px 18px rgba(24,55,37,.035);
-          transition: transform .2s ease, box-shadow .2s ease;
+          box-shadow: 0 5px 18px rgba(24, 55, 37, 0.035);
+          transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease;
         }
 
         .stat:hover {
           transform: translateY(-3px);
-          box-shadow: 0 10px 25px rgba(24,55,37,.07);
+          box-shadow: 0 10px 25px rgba(24, 55, 37, 0.07);
         }
 
         .stat::after {
@@ -399,39 +424,42 @@ export default function EmployeeManagement() {
           color: #7e8a80;
           font-size: 11px;
           font-weight: 700;
+          line-height: 1.5;
         }
 
         .stat-value {
           margin-top: 11px;
           color: var(--emerald-dark);
           font-family: var(--font-manrope), sans-serif;
-          font-size: 27px;
+          font-size: clamp(22px, 2vw, 27px);
           font-weight: 800;
           letter-spacing: -1px;
+          line-height: 1.25;
+          overflow-wrap: anywhere;
         }
 
         .stat-caption {
-          margin-top: 6px;
+          margin-top: 7px;
           color: #9aa39b;
           font-size: 10px;
           line-height: 1.6;
         }
 
         .panel {
-          min-width: 0;
-          padding: 25px;
-          border: 1px solid var(--line);
-          border-radius: 19px;
-          background: #fff;
-          box-shadow: 0 6px 22px rgba(24,55,37,.035);
-        }
+  min-width: 0;
+  padding: 27px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 6px 22px rgba(24, 55, 37, 0.035);
+}
 
         .panel-heading {
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
           gap: 15px;
-          margin-bottom: 21px;
+          margin-bottom: 23px;
           flex-wrap: wrap;
         }
 
@@ -441,7 +469,8 @@ export default function EmployeeManagement() {
           font-family: var(--font-manrope), sans-serif;
           font-size: 17px;
           font-weight: 800;
-          letter-spacing: -.4px;
+          letter-spacing: -0.4px;
+          line-height: 1.4;
         }
 
         .panel-heading p {
@@ -452,7 +481,11 @@ export default function EmployeeManagement() {
         }
 
         .step {
-          padding: 9px 13px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 35px;
+          padding: 8px 13px;
           border: 1px solid #e8dfca;
           border-radius: 9px;
           background: #fbf8f0;
@@ -463,18 +496,23 @@ export default function EmployeeManagement() {
 
         .form-grid {
           display: grid;
-          grid-template-columns: 1.2fr 1fr;
-          gap: 16px;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          align-items: start;
+          gap: 20px;
         }
 
         .field-wrap {
           display: block;
           min-width: 0;
+          width: 100%;
         }
 
         .field-label {
-          display: block;
-          margin-bottom: 8px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          min-height: 18px;
+          margin-bottom: 9px;
           color: #526157;
           font-size: 10px;
           font-weight: 800;
@@ -488,9 +526,8 @@ export default function EmployeeManagement() {
           display: block;
           width: 100%;
           min-width: 0;
-          box-sizing: border-box;
-          min-height: 45px;
-          padding: 0 13px;
+          min-height: 46px;
+          padding: 0 14px;
           border: 1px solid #e2e8e1;
           border-radius: 10px;
           background: #fff;
@@ -498,7 +535,9 @@ export default function EmployeeManagement() {
           font-family: inherit;
           font-size: 12px;
           outline: none;
-          transition: border-color .18s ease, box-shadow .18s ease;
+          transition:
+            border-color 0.18s ease,
+            box-shadow 0.18s ease;
         }
 
         .field::placeholder {
@@ -507,7 +546,7 @@ export default function EmployeeManagement() {
 
         .field:focus {
           border-color: #789b83;
-          box-shadow: 0 0 0 3px rgba(45,105,68,.09);
+          box-shadow: 0 0 0 3px rgba(45, 105, 68, 0.09);
         }
 
         .button,
@@ -517,20 +556,20 @@ export default function EmployeeManagement() {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          min-height: 38px;
-          padding: 0 14px;
+          min-height: 39px;
+          padding: 0 15px;
           border-radius: 9px;
           font-family: inherit;
           font-size: 11px;
           font-weight: 800;
           cursor: pointer;
-          transition: all .18s ease;
+          transition: all 0.18s ease;
           white-space: nowrap;
         }
 
         .button {
-          min-height: 43px;
-          padding: 0 19px;
+          min-height: 44px;
+          padding: 0 21px;
           border: 0;
           font-size: 12px;
         }
@@ -538,12 +577,12 @@ export default function EmployeeManagement() {
         .primary {
           background: linear-gradient(135deg, #205a3e, #123d2b);
           color: white;
-          box-shadow: 0 4px 11px rgba(23,75,54,.16);
+          box-shadow: 0 4px 11px rgba(23, 75, 54, 0.16);
         }
 
         .primary:hover:not(:disabled) {
           background: #0e3525;
-          box-shadow: 0 6px 15px rgba(23,75,54,.22);
+          box-shadow: 0 6px 15px rgba(23, 75, 54, 0.22);
           transform: translateY(-1px);
         }
 
@@ -594,7 +633,7 @@ export default function EmployeeManagement() {
         }
 
         button:disabled {
-          opacity: .5;
+          opacity: 0.5;
           cursor: not-allowed;
           transform: none !important;
         }
@@ -602,11 +641,11 @@ export default function EmployeeManagement() {
         .form-footer {
           display: flex;
           align-items: center;
-          justify-content: space-between;
+          justify-content: flex-end;
           gap: 15px;
           flex-wrap: wrap;
-          margin-top: 20px;
-          padding-top: 18px;
+          margin-top: 22px;
+          padding-top: 19px;
           border-top: 1px solid #edf0eb;
         }
 
@@ -627,6 +666,7 @@ export default function EmployeeManagement() {
 
         .search-wrap {
           position: relative;
+          display: block;
           flex: 1;
           min-width: 180px;
         }
@@ -634,7 +674,7 @@ export default function EmployeeManagement() {
         .search-icon {
           position: absolute;
           top: 50%;
-          left: 13px;
+          left: 14px;
           color: #8a988d;
           font-size: 19px;
           transform: translateY(-52%);
@@ -642,11 +682,11 @@ export default function EmployeeManagement() {
         }
 
         .search-input {
-          padding-left: 39px;
+          padding-left: 40px;
         }
 
         .result-count {
-          margin-bottom: 12px;
+          margin-bottom: 13px;
           color: #8b968c;
           font-size: 10px;
           font-weight: 600;
@@ -665,10 +705,11 @@ export default function EmployeeManagement() {
           border-collapse: separate;
           border-spacing: 0;
           font-size: 11px;
+          table-layout: fixed;
         }
 
         .table th {
-          padding: 15px 14px;
+          padding: 15px 16px;
           border-bottom: 1px solid #e6ebe5;
           background: #f5f7f3;
           color: #66766a;
@@ -676,18 +717,35 @@ export default function EmployeeManagement() {
           white-space: nowrap;
           font-size: 9px;
           font-weight: 800;
-          letter-spacing: .45px;
+          letter-spacing: 0.45px;
+        }
+
+        .table th:nth-child(1) {
+          width: 31%;
+        }
+
+        .table th:nth-child(2) {
+          width: 24%;
+        }
+
+        .table th:nth-child(3) {
+          width: 17%;
+        }
+
+        .table th:nth-child(4) {
+          width: 28%;
         }
 
         .table td {
-          padding: 15px 14px;
+          padding: 16px;
           border-bottom: 1px solid #edf0eb;
           color: #758077;
           vertical-align: middle;
+          line-height: 1.5;
         }
 
         .table tbody tr {
-          transition: background .15s ease;
+          transition: background 0.15s ease;
         }
 
         .table tbody tr:hover {
@@ -702,6 +760,7 @@ export default function EmployeeManagement() {
           color: #2c4033;
           font-size: 12px;
           font-weight: 800;
+          overflow-wrap: anywhere;
         }
 
         .wage {
@@ -713,8 +772,10 @@ export default function EmployeeManagement() {
         .status {
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 7px;
-          padding: 7px 10px;
+          min-height: 29px;
+          padding: 6px 10px;
           border-radius: 8px;
           font-size: 9px;
           font-weight: 800;
@@ -748,7 +809,12 @@ export default function EmployeeManagement() {
         }
 
         .empty {
-          padding: 40px 18px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-height: 150px;
+          padding: 35px 18px;
           border: 1px dashed #dce5dc;
           border-radius: 13px;
           background: #fafbf9;
@@ -789,7 +855,7 @@ export default function EmployeeManagement() {
           font-size: 10px;
           font-weight: 800;
           cursor: pointer;
-          transition: all .18s ease;
+          transition: all 0.18s ease;
         }
 
         .list-tab:hover {
@@ -814,11 +880,11 @@ export default function EmployeeManagement() {
           border-color: var(--emerald);
           background: var(--emerald);
           color: white;
-          box-shadow: 0 4px 10px rgba(23,75,54,.13);
+          box-shadow: 0 4px 10px rgba(23, 75, 54, 0.13);
         }
 
         .list-tab-active span {
-          background: rgba(255,255,255,.17);
+          background: rgba(255, 255, 255, 0.17);
           color: white;
         }
 
@@ -853,9 +919,9 @@ export default function EmployeeManagement() {
           align-items: center;
           justify-content: center;
           padding: 20px;
-          background: rgba(15,35,25,.48);
+          background: rgba(15, 35, 25, 0.48);
           backdrop-filter: blur(5px);
-          animation: fadeIn .18s ease;
+          animation: fadeIn 0.18s ease;
         }
 
         .modal-card {
@@ -863,12 +929,12 @@ export default function EmployeeManagement() {
           max-width: 620px;
           max-height: 90vh;
           overflow-y: auto;
-          padding: 27px;
+          padding: 29px;
           border: 1px solid #e3e9df;
           border-radius: 20px;
           background: #fff;
-          box-shadow: 0 24px 80px rgba(10,35,22,.22);
-          animation: modalIn .22s ease;
+          box-shadow: 0 24px 80px rgba(10, 35, 22, 0.22);
+          animation: modalIn 0.22s ease;
         }
 
         .modal-header {
@@ -876,8 +942,8 @@ export default function EmployeeManagement() {
           justify-content: space-between;
           align-items: flex-start;
           gap: 15px;
-          margin-bottom: 22px;
-          padding-bottom: 18px;
+          margin-bottom: 23px;
+          padding-bottom: 19px;
           border-bottom: 1px solid #edf0eb;
         }
 
@@ -920,15 +986,17 @@ export default function EmployeeManagement() {
 
         .modal-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          align-items: start;
+          gap: 17px;
         }
 
         .modal-note {
           display: flex;
+          align-items: flex-start;
           gap: 10px;
           margin-top: 20px;
-          padding: 13px 15px;
+          padding: 14px 16px;
           border: 1px solid #eee7d8;
           border-radius: 11px;
           background: #fbf9f3;
@@ -940,21 +1008,26 @@ export default function EmployeeManagement() {
         .modal-footer {
           display: flex;
           justify-content: flex-end;
+          align-items: center;
           gap: 10px;
           margin-top: 23px;
-          padding-top: 18px;
+          padding-top: 19px;
           border-top: 1px solid #edf0eb;
         }
 
         @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
         }
 
         @keyframes modalIn {
           from {
             opacity: 0;
-            transform: translateY(12px) scale(.98);
+            transform: translateY(12px) scale(0.98);
           }
           to {
             opacity: 1;
@@ -962,94 +1035,128 @@ export default function EmployeeManagement() {
           }
         }
 
-        @media (max-width: 700px) {
-          .employee-page {
-            gap: 15px;
-          }
+       @media (max-width: 900px) {
+  .table {
+    min-width: 650px;
+  }
+}
 
-          .hero {
-            align-items: flex-start;
-            flex-direction: column;
-            padding: 23px 20px;
-            border-radius: 17px;
-          }
+@media (max-width: 700px) {
+  .employee-page {
+    gap: 15px;
+  }
 
-          .stats {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 9px;
-          }
+  .hero {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+    gap: 17px;
+    min-height: auto;
+    padding: 23px 20px;
+    border-radius: 17px;
+  }
 
-          .stat {
-            padding: 15px;
-            border-radius: 13px;
-          }
+  .count-chip {
+    justify-self: start;
+  }
 
-          .stat-value {
-            font-size: 23px;
-          }
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
 
-          .panel {
-            padding: 17px;
-            border-radius: 15px;
-          }
+  .stat {
+    min-height: 120px;
+    padding: 16px;
+    border-radius: 13px;
+  }
 
-          .form-grid {
-            grid-template-columns: 1fr;
-          }
+  .stat-value {
+    font-size: 23px;
+  }
 
-          .form-footer {
-            align-items: stretch;
-            flex-direction: column;
-          }
+  .panel {
+    padding: 23px 20px;
+    border-radius: 15px;
+  }
 
-          .form-footer .button {
-            width: 100%;
-          }
+  .panel-heading {
+    align-items: flex-start;
+    margin-bottom: 19px;
+  }
 
-          .toolbar {
-            align-items: stretch;
-            flex-direction: column;
-          }
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
 
-          .search-wrap {
-            width: 100%;
-          }
+  .form-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
 
-          .modal-overlay {
-            align-items: flex-end;
-            padding: 0;
-          }
+  .form-footer .button {
+    width: 100%;
+  }
 
-          .modal-card {
-            max-height: 92vh;
-            padding: 21px;
-            border-radius: 20px 20px 0 0;
-          }
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
 
-          .modal-grid {
-            grid-template-columns: 1fr;
-            gap: 13px;
-          }
+  .search-wrap {
+    width: 100%;
+  }
 
-          .modal-footer {
-            flex-direction: column-reverse;
-          }
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
 
-          .modal-footer .button {
-            width: 100%;
-          }
+  .modal-card {
+    max-height: 92vh;
+    padding: 21px;
+    border-radius: 20px 20px 0 0;
+  }
 
-          .list-tab {
-            flex: 1;
-            padding: 0 10px;
-          }
-        }
+  .modal-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
 
-        @media (max-width: 380px) {
-          .stats {
-            grid-template-columns: 1fr;
-          }
-        }
+  .modal-footer {
+    flex-direction: column-reverse;
+  }
+
+  .modal-footer .button {
+    width: 100%;
+  }
+
+  .list-tab {
+    flex: 1;
+    padding: 0 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  .stat {
+    min-height: 105px;
+  }
+
+  .hero,
+  .panel {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .title {
+    font-size: 26px;
+  }
+}
+  
       `}</style>
 
       <header className="hero">
@@ -1062,7 +1169,7 @@ export default function EmployeeManagement() {
         </div>
 
         <div className="count-chip">
-          {activeEmployees.length} karyawan aktif
+          {activeEmployees.length} Karyawan aktif
         </div>
       </header>
 
@@ -1108,7 +1215,6 @@ export default function EmployeeManagement() {
               Masukkan nama lengkap dan upah mingguan karyawan.
             </p>
           </div>
-          <span className="step">DATA KARYAWAN</span>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -1123,7 +1229,7 @@ export default function EmployeeManagement() {
                 onChange={(event) => setName(event.target.value)}
                 maxLength={150}
                 required
-                placeholder="Masukkan nama karyawan"
+                placeholder="Masukkan nama pegawai"
               />
             </label>
 
@@ -1146,17 +1252,12 @@ export default function EmployeeManagement() {
           </div>
 
           <div className="form-footer">
-            <p>
-              Upah diisi dalam nominal rupiah untuk periode tujuh hari.
-              Data karyawan baru otomatis berstatus aktif.
-            </p>
-
             <button
               type="submit"
               className="button primary"
               disabled={saving}
             >
-              {saving ? "Menyimpan..." : "+ Tambah Karyawan"}
+              {saving ? "Menyimpan..." : "+ Tambah karyawan"}
             </button>
           </div>
         </form>
@@ -1167,56 +1268,15 @@ export default function EmployeeManagement() {
           <div>
             <h2>
               {listView === "active"
-                ? "Daftar Karyawan Aktif"
-                : "Daftar Karyawan Nonaktif"}
+                ? "Daftar karyawan Aktif"
+                : "Daftar karyawan Nonaktif"}
             </h2>
             <p>
               Lihat data karyawan, perbarui upah, atau ubah status karyawan.
             </p>
 
-            <div className="list-tabs">
-              <button
-                type="button"
-                className={`list-tab ${
-                  listView === "active" ? "list-tab-active" : ""
-                }`}
-                onClick={() => {
-                  setListView("active");
-                  setSearch("");
-                  setError("");
-                  setMessage("");
-                }}
-              >
-                Karyawan Aktif
-                <span>{activeEmployees.length}</span>
-              </button>
-
-              <button
-                type="button"
-                className={`list-tab ${
-                  listView === "inactive" ? "list-tab-active" : ""
-                }`}
-                onClick={() => {
-                  setListView("inactive");
-                  setSearch("");
-                  setError("");
-                  setMessage("");
-                }}
-              >
-                Nonaktif
-                <span>{inactiveEmployees.length}</span>
-              </button>
-            </div>
+            <div className="list-tabs"></div>
           </div>
-
-          <button
-            type="button"
-            className="reload"
-            onClick={() => void loadEmployees()}
-            disabled={loading}
-          >
-            {loading ? "Memuat..." : "↻ Muat Ulang"}
-          </button>
         </div>
 
         <div className="toolbar">
@@ -1226,7 +1286,7 @@ export default function EmployeeManagement() {
               className="field search-input"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Cari nama karyawan..."
+              placeholder="Cari nama pegawai..."
             />
           </label>
         </div>
@@ -1240,7 +1300,7 @@ export default function EmployeeManagement() {
           <div className="empty">Memuat data karyawan...</div>
         ) : filteredEmployees.length === 0 ? (
           <div className="empty">
-            <strong>Karyawan tidak ditemukan</strong>
+            <strong>karyawan tidak ditemukan</strong>
             Coba ubah kata pencarian atau periksa tab karyawan.
           </div>
         ) : (
@@ -1340,7 +1400,7 @@ export default function EmployeeManagement() {
                   MANAJEMEN KARYAWAN
                 </div>
                 <h2 className="modal-title" id="edit-employee-title">
-                  Edit Karyawan
+                  Edit karyawan
                 </h2>
                 <p className="modal-description">
                   Perbarui nama dan upah mingguan karyawan.

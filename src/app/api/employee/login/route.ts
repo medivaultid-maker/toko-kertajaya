@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Cocokkan nama dan kode dengan data karyawan
+    // Cocokkan nama dan kode dengan data pegawai
     const { data: employee, error: employeeError } = await admin
       .from("employees")
       .select("id, full_name, employee_code, profile_id, is_active")

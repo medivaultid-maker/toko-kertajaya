@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -13,7 +12,6 @@ import {
   UserCheck,
   UserX,
   ArrowUpRight,
-  LockKeyhole,
 } from "lucide-react";
 
 type Employee = {
@@ -155,12 +153,7 @@ export default function EmployeeAccountManagement() {
                 MANAJEMEN AKUN
               </div>
 
-              <h1 className="title">Akun Pegawai</h1>
-
-              <p className="subtitle">
-                Kelola akses login dan akun karyawan Toko Rosyidah
-                dengan mudah dan terorganisir.
-              </p>
+              <h1 className="title">Akun Karyawan</h1>
             </div>
 
             <div className="hero-icon">
@@ -206,7 +199,7 @@ export default function EmployeeAccountManagement() {
                 {linkedEmployees.length}
               </h2>
               <p className="stat-caption">
-                Pegawai memiliki akun
+                Karyawan memiliki akun
               </p>
             </div>
             <div className="stat-icon green">
@@ -221,7 +214,7 @@ export default function EmployeeAccountManagement() {
                 {activeLinkedEmployees.length}
               </h2>
               <p className="stat-caption">
-                Pegawai berstatus aktif
+                Karyawan berstatus aktif
               </p>
             </div>
             <div className="stat-icon gold">
@@ -236,7 +229,7 @@ export default function EmployeeAccountManagement() {
                 {availableEmployees.length}
               </h2>
               <p className="stat-caption">
-                Pegawai aktif belum terdaftar
+                Karyawan aktif belum terdaftar
               </p>
             </div>
             <div className="stat-icon neutral">
@@ -247,24 +240,24 @@ export default function EmployeeAccountManagement() {
 
         {/* CREATE ACCOUNT */}
         <section className="panel">
-          <div className="panel-heading">
-            <div className="heading-icon">
-              <UserPlus size={21} />
-            </div>
-            <div>
-              <h2>Buat Akun Pegawai</h2>
-              <p>
-                Buat akses login untuk karyawan yang belum memiliki akun.
-              </p>
-            </div>
-          </div>
+         <div className="panel-heading">
+  <div className="heading-icon">
+    <UserPlus size={21} />
+  </div>
+  <div className="heading-text">
+    <h2>Buat Akun Karyawan</h2>
+    <p>
+      Buat akses login untuk karyawan yang belum memiliki akun.
+    </p>
+  </div>
+</div>
 
           <div className="panel-body">
             <form onSubmit={handleCreateAccount}>
               <div className="form-grid">
                 <div className="field-wrap full">
                   <label className="field-label">
-                    Pilih Karyawan
+                    Pilih karyawan
                   </label>
 
                   <select
@@ -290,29 +283,29 @@ export default function EmployeeAccountManagement() {
                   {!loading && availableEmployees.length === 0 && (
                     <p className="field-hint warning">
                       Tidak ada karyawan aktif yang belum memiliki akun.
-                      Tambahkan karyawan melalui menu Data Karyawan.
+                      Tambahkan karyawan melalui menu Data karyawan.
                     </p>
                   )}
                 </div>
 
                 <div className="field-wrap">
                   <label className="field-label">
-                    Password Pegawai
-                  </label>
+  <KeyRound size={14} />
+  Password karyawan
+</label>
 
                   <div className="input-icon-wrap">
-                    <KeyRound size={17} />
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      minLength={8}
-                      required
-                      autoComplete="new-password"
-                      placeholder="Minimal 8 karakter"
-                      className="field with-icon"
-                    />
-                  </div>
+  <input
+    type="password"
+    value={password}
+    onChange={(e) => setPassword(e.target.value)}
+    minLength={8}
+    required
+    autoComplete="new-password"
+    placeholder="Minimal 8 karakter"
+    className="field"
+  />
+</div>
 
                   <p className="field-hint">
                     Password minimal 8 karakter.
@@ -357,26 +350,11 @@ export default function EmployeeAccountManagement() {
                   className="button primary"
                 >
                   <UserPlus size={17} />
-                  {saving ? "Membuat akun..." : "Buat Akun Pegawai"}
+                  {saving ? "Membuat akun..." : "Buat Akun Karyawan"}
                   {!saving && <ArrowUpRight size={16} />}
                 </button>
               </div>
             </form>
-
-            {/* LOGIN INFORMATION */}
-            <div className="info">
-              <div className="info-icon">
-                <LockKeyhole size={19} />
-              </div>
-              <div>
-                <strong>Informasi Login Pegawai</strong>
-                <p>
-                  Pegawai login menggunakan nama lengkap dan password
-                  yang telah dibuat oleh admin. Pastikan password
-                  disampaikan kepada pegawai secara aman.
-                </p>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -390,36 +368,23 @@ export default function EmployeeAccountManagement() {
               <div>
                 <h2>Daftar Akun Terhubung</h2>
                 <p>
-                  {linkedEmployees.length} akun pegawai terdaftar
+                  {linkedEmployees.length} akun karyawan terdaftar
                 </p>
               </div>
             </div>
-
-            <button
-              type="button"
-              onClick={() => void loadEmployees()}
-              disabled={loading}
-              className="button secondary reload"
-            >
-              <RefreshCw
-                size={15}
-                className={loading ? "spin" : ""}
-              />
-              Muat Ulang
-            </button>
           </div>
 
           {loading ? (
             <div className="empty">
               <RefreshCw size={25} className="spin" />
-              <p>Memuat data akun pegawai...</p>
+              <p>Memuat data akun karyawan...</p>
             </div>
           ) : linkedEmployees.length === 0 ? (
             <div className="empty">
               <Users size={30} />
-              <strong>Belum ada akun pegawai</strong>
+              <strong>Belum ada akun karyawan</strong>
               <p>
-                Akun pegawai yang berhasil dibuat akan muncul di sini.
+                Akun karyawan yang berhasil dibuat akan muncul di sini.
               </p>
             </div>
           ) : (
@@ -429,9 +394,9 @@ export default function EmployeeAccountManagement() {
                   <thead>
                     <tr>
                       <th>No.</th>
-                      <th>Kode Pegawai</th>
-                      <th>Nama Pegawai</th>
-                      <th>Status Karyawan</th>
+                      <th>Kode karyawan</th>
+                      <th>Nama karyawan</th>
+                      <th>Status karyawan</th>
                     </tr>
                   </thead>
 
@@ -475,7 +440,7 @@ export default function EmployeeAccountManagement() {
 
               <div className="table-footer">
                 <span>
-                  Menampilkan {linkedEmployees.length} akun pegawai
+                  Menampilkan {linkedEmployees.length} akun karyawan
                 </span>
 
                 <div className="footer-status">
@@ -525,21 +490,29 @@ export default function EmployeeAccountManagement() {
 
         .hero {
           position: relative;
+          display: grid;
+          grid-template-columns: 1fr;
+          align-items: center;
+          gap: 24px;
+          min-height: 150px;
           overflow: hidden;
-          padding: 30px 34px 24px;
-          border-radius: 22px;
-          background: linear-gradient(
-            120deg,
-            var(--emerald-dark),
-            var(--emerald)
-          );
-          color: white;
-          box-shadow: 0 12px 30px rgba(16, 58, 42, 0.12);
+          padding: 30px 27px;
+          border: 1px solid #e5e9e1;
+          border-radius: 20px;
+          background:
+            radial-gradient(
+              circle at 92% 10%,
+              rgba(185, 154, 98, 0.13),
+              transparent 28%
+            ),
+            linear-gradient(115deg, #ffffff 0%, #f5f8f3 100%);
+          color: var(--ink);
+          box-shadow: 0 8px 28px rgba(24, 55, 37, 0.035);
         }
 
         .hero-decoration {
           position: absolute;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(185, 154, 98, 0.24);
           border-radius: 50%;
           pointer-events: none;
         }
@@ -571,59 +544,53 @@ export default function EmployeeAccountManagement() {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          margin-bottom: 13px;
-          color: #e5d2a7;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 1.4px;
+          margin-bottom: 10px;
+          color: var(--gold);
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 2.4px;
         }
 
         .title {
           margin: 0;
+          color: var(--emerald-dark);
           font-family: var(--font-manrope), sans-serif;
-          font-size: 30px;
-          font-weight: 750;
-          letter-spacing: -0.8px;
-        }
-
-        .subtitle {
-          max-width: 560px;
-          margin-top: 8px;
-          color: rgba(255, 255, 255, 0.68);
-          font-size: 13px;
-          line-height: 1.7;
+          font-size: clamp(27px, 3vw, 35px);
+          font-weight: 800;
+          letter-spacing: -1.4px;
+          line-height: 1.25;
         }
 
         .hero-icon {
           display: flex;
-          width: 72px;
-          height: 72px;
+          width: 65px;
+          height: 65px;
           flex-shrink: 0;
           align-items: center;
           justify-content: center;
-          border: 1px solid rgba(213, 183, 122, 0.3);
-          border-radius: 19px;
-          background: rgba(255, 255, 255, 0.08);
-          color: #e4c98f;
+          border: 1px solid #e8dfca;
+          border-radius: 15px;
+          background: rgba(255, 255, 255, 0.8);
+          color: var(--gold);
         }
 
         .hero-bottom {
           position: relative;
           z-index: 1;
-          margin-top: 23px;
+          margin-top: 0;
         }
 
         .count-chip {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 7px 12px;
-          border: 1px solid rgba(255, 255, 255, 0.17);
-          border-radius: 30px;
-          background: rgba(255, 255, 255, 0.08);
-          color: rgba(255, 255, 255, 0.85);
+          padding: 8px 13px;
+          border: 1px solid #dce8de;
+          border-radius: 10px;
+          background: rgba(255, 255, 255, 0.85);
+          color: var(--emerald);
           font-size: 11px;
-          font-weight: 600;
+          font-weight: 800;
         }
 
         .count-dot,
@@ -637,41 +604,56 @@ export default function EmployeeAccountManagement() {
         .stats {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
+          align-items: stretch;
           gap: 16px;
         }
 
         .stat {
+          position: relative;
           display: flex;
           min-width: 0;
+          min-height: 135px;
           align-items: center;
           justify-content: space-between;
           gap: 12px;
-          padding: 21px;
+          overflow: hidden;
+          padding: 22px 24px;
           border: 1px solid var(--line);
-          border-radius: 17px;
-          background: white;
-          box-shadow: 0 5px 20px rgba(30, 55, 43, 0.025);
+          border-radius: 16px;
+          background: #fff;
+          box-shadow: 0 5px 18px rgba(24, 55, 37, 0.035);
+          transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease;
+        }
+
+        .stat:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 10px 25px rgba(24, 55, 37, 0.07);
         }
 
         .stat-label {
-          color: var(--muted);
-          font-size: 12px;
-          font-weight: 600;
+          color: #7e8a80;
+          font-size: 11px;
+          font-weight: 700;
+          line-height: 1.5;
         }
 
         .stat-value {
-          margin-top: 8px;
+          margin-top: 11px;
           color: var(--emerald-dark);
           font-family: var(--font-manrope), sans-serif;
-          font-size: 30px;
-          font-weight: 750;
-          line-height: 1;
+          font-size: clamp(22px, 2vw, 27px);
+          font-weight: 800;
+          letter-spacing: -1px;
+          line-height: 1.25;
         }
 
         .stat-caption {
           margin-top: 7px;
-          color: #9ba299;
-          font-size: 11px;
+          color: #9aa39b;
+          font-size: 10px;
+          line-height: 1.6;
         }
 
         .stat-icon,
@@ -682,7 +664,7 @@ export default function EmployeeAccountManagement() {
           flex-shrink: 0;
           align-items: center;
           justify-content: center;
-          border-radius: 13px;
+          border-radius: 12px;
         }
 
         .green,
@@ -703,75 +685,51 @@ export default function EmployeeAccountManagement() {
         }
 
         .panel {
-          overflow: hidden;
+          min-width: 0;
+          padding: 27px;
           border: 1px solid var(--line);
           border-radius: 18px;
-          background: white;
-          box-shadow: 0 6px 24px rgba(30, 55, 43, 0.03);
+          background: #fff;
+          box-shadow: 0 6px 22px rgba(24, 55, 37, 0.035);
         }
 
-        .panel-heading {
-          display: flex;
-          align-items: center;
-          gap: 13px;
-          padding: 21px 25px;
-          border-bottom: 1px solid #eeefe9;
-        }
+       .panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 13px;
+  margin-bottom: 23px;
+  flex-wrap: nowrap;
+  text-align: left;
+}
 
         .panel-heading h2 {
-          color: #2b4033;
+          margin: 0 0 7px;
+          color: var(--emerald-dark);
           font-family: var(--font-manrope), sans-serif;
-          font-size: 15px;
-          font-weight: 750;
+          font-size: 17px;
+          font-weight: 800;
+          letter-spacing: -0.4px;
+          line-height: 1.4;
         }
 
         .panel-heading p {
-          margin-top: 4px;
-          color: #899087;
+          margin: 0;
+          color: #89938a;
           font-size: 11px;
-          line-height: 1.5;
+          line-height: 1.75;
         }
 
         .panel-body {
-          padding: 25px;
+          padding: 0;
         }
 
         .form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-  gap: 20px;
-}
-
-.field-wrap {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.field-wrap.full {
-  grid-column: 1 / -1;
-}
-
-.input-icon-wrap {
-  position: relative;
-  width: 100%;
-}
-
-.field {
-  box-sizing: border-box;
-  width: 100%;
-  height: 44px;
-}
-
-.input-icon-wrap .field {
-  padding-left: 40px;
-}
-
-.field-hint {
-  min-height: 16px;
-}
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          align-items: start;
+          gap: 20px;
+        }
 
         .field-wrap {
           display: flex;
@@ -785,28 +743,59 @@ export default function EmployeeAccountManagement() {
         }
 
         .field-label {
-          color: #526054;
-          font-size: 12px;
-          font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 18px;
+  color: #526157;
+  font-size: 10px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.field-label svg {
+  color: #a1844d;
+  flex-shrink: 0;
+}
+
+        .input-icon-wrap {
+          position: relative;
+          width: 100%;
+        }
+
+        .input-icon-wrap > svg {
+          position: absolute;
+          top: 14px;
+          left: 14px;
+          color: #8b968a;
         }
 
         .field {
+          box-sizing: border-box;
+          display: block;
           width: 100%;
           min-width: 0;
-          padding: 12px 14px;
-          border: 1px solid #dedfd5;
+          min-height: 46px;
+          padding: 0 14px;
+          border: 1px solid #e2e8e1;
           border-radius: 10px;
           outline: none;
-          background: #fffefa;
-          color: var(--ink);
+          background: #fff;
+          color: #304136;
           font-family: inherit;
-          font-size: 13px;
-          transition: border-color 0.2s, box-shadow 0.2s;
+          font-size: 12px;
+          transition:
+            border-color 0.18s ease,
+            box-shadow 0.18s ease;
+        }
+
+        .field::placeholder {
+          color: #b1b9b1;
         }
 
         .field:focus {
-          border-color: #47745c;
-          box-shadow: 0 0 0 3px rgba(71, 116, 92, 0.1);
+          border-color: #789b83;
+          box-shadow: 0 0 0 3px rgba(45, 105, 68, 0.09);
         }
 
         .field:disabled {
@@ -815,22 +804,12 @@ export default function EmployeeAccountManagement() {
           opacity: 0.7;
         }
 
-        .input-icon-wrap {
-          position: relative;
-        }
-
-        .input-icon-wrap > svg {
-          position: absolute;
-          top: 13px;
-          left: 13px;
-          color: #8b968a;
-        }
-
         .with-icon {
           padding-left: 40px;
         }
 
         .field-hint {
+          min-height: 16px;
           color: #969c93;
           font-size: 11px;
           line-height: 1.5;
@@ -846,8 +825,13 @@ export default function EmployeeAccountManagement() {
 
         .form-footer {
           display: flex;
-          justify-content: flex-start;
-          margin-top: 23px;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 15px;
+          flex-wrap: wrap;
+          margin-top: 22px;
+          padding-top: 19px;
+          border-top: 1px solid #edf0eb;
         }
 
         .button {
@@ -855,13 +839,15 @@ export default function EmployeeAccountManagement() {
           align-items: center;
           justify-content: center;
           gap: 9px;
-          padding: 11px 17px;
-          border-radius: 10px;
+          min-height: 44px;
+          padding: 0 21px;
+          border: 0;
+          border-radius: 9px;
           font-family: inherit;
           font-size: 12px;
-          font-weight: 700;
-          transition: all 0.2s;
+          font-weight: 800;
           cursor: pointer;
+          transition: all 0.18s ease;
         }
 
         .button:disabled {
@@ -870,65 +856,30 @@ export default function EmployeeAccountManagement() {
         }
 
         .primary {
-          background: var(--emerald);
+          background: linear-gradient(135deg, #205a3e, #123d2b);
           color: white;
-          box-shadow: 0 4px 10px rgba(23, 75, 54, 0.12);
+          box-shadow: 0 4px 11px rgba(23, 75, 54, 0.16);
         }
 
         .primary:hover:not(:disabled) {
-          background: var(--emerald-dark);
+          background: #0e3525;
+          box-shadow: 0 6px 15px rgba(23, 75, 54, 0.22);
           transform: translateY(-1px);
         }
 
         .secondary {
-          border: 1px solid #e0e4dc;
-          background: white;
-          color: #526653;
+          border: 1px solid #dce7dd;
+          background: #f0f5f0;
+          color: var(--emerald);
         }
 
         .secondary:hover:not(:disabled) {
-          border-color: #a8bba8;
-          background: #f7f8f3;
-        }
-
-        .info {
-          display: flex;
-          align-items: flex-start;
-          gap: 13px;
-          margin-top: 25px;
-          padding: 16px;
-          border: 1px solid #e9dfc8;
-          border-radius: 13px;
-          background: #faf7ef;
-        }
-
-        .info-icon {
-          display: flex;
-          width: 37px;
-          height: 37px;
-          flex-shrink: 0;
-          align-items: center;
-          justify-content: center;
-          border-radius: 10px;
-          background: #f0e7d4;
-          color: #9a7942;
-        }
-
-        .info strong {
-          color: #6f5935;
-          font-size: 12px;
-        }
-
-        .info p {
-          margin-top: 5px;
-          color: #8b795a;
-          font-size: 11px;
-          line-height: 1.7;
+          border-color: #bfd2c2;
+          background: #e7f0e8;
         }
 
         .table-heading {
           justify-content: space-between;
-          flex-wrap: wrap;
         }
 
         .heading-left {
@@ -937,51 +888,52 @@ export default function EmployeeAccountManagement() {
           gap: 13px;
         }
 
-        .reload {
-          padding: 9px 13px;
-        }
-
         .table-wrap {
           width: 100%;
           overflow-x: auto;
+          border: 1px solid #e7ece6;
+          border-radius: 13px;
         }
 
         .table {
           width: 100%;
           min-width: 580px;
-          border-collapse: collapse;
+          border-collapse: separate;
+          border-spacing: 0;
           text-align: left;
-          font-size: 12px;
+          font-size: 11px;
+          table-layout: fixed;
         }
 
         .table thead {
-          background: #f8f8f3;
+          background: #f5f7f3;
         }
 
         .table th {
-          padding: 14px 20px;
-          border-bottom: 1px solid #eeede6;
-          color: #818a7f;
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.7px;
-          text-transform: uppercase;
+          padding: 15px 16px;
+          border-bottom: 1px solid #e6ebe5;
+          color: #66766a;
+          text-align: left;
           white-space: nowrap;
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 0.45px;
         }
 
         .table td {
-          padding: 15px 20px;
-          border-bottom: 1px solid #f0efe9;
-          color: #59665a;
-          white-space: nowrap;
+          padding: 16px;
+          border-bottom: 1px solid #edf0eb;
+          color: #758077;
+          vertical-align: middle;
+          line-height: 1.5;
         }
 
         .table tbody tr {
-          transition: background 0.15s;
+          transition: background 0.15s ease;
         }
 
         .table tbody tr:hover {
-          background: #fafbf7;
+          background: #f8faf7;
         }
 
         .table tbody tr:last-child td {
@@ -1005,31 +957,36 @@ export default function EmployeeAccountManagement() {
         }
 
         .name {
-          color: #334638;
-          font-weight: 700;
+          color: #2c4033;
+          font-size: 12px;
+          font-weight: 800;
+          overflow-wrap: anywhere;
         }
 
         .status {
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 7px;
+          min-height: 29px;
           padding: 6px 10px;
           border: 1px solid;
-          border-radius: 30px;
-          font-size: 10px;
-          font-weight: 700;
+          border-radius: 8px;
+          font-size: 9px;
+          font-weight: 800;
+          white-space: nowrap;
         }
 
         .status.approved {
-          border-color: #cce2cf;
+          border-color: #dcebdd;
           background: #edf6ed;
-          color: #397047;
+          color: #3e754b;
         }
 
         .status.inactive {
-          border-color: #e3e3dc;
-          background: #f3f3ef;
-          color: #858980;
+          border-color: #e4e8e3;
+          background: #f2f4f1;
+          color: #778178;
         }
 
         .status.inactive .dot {
@@ -1042,11 +999,9 @@ export default function EmployeeAccountManagement() {
           justify-content: space-between;
           flex-wrap: wrap;
           gap: 12px;
-          padding: 14px 20px;
-          border-top: 1px solid #eeede6;
-          background: #fcfcf9;
-          color: #92998f;
-          font-size: 11px;
+          margin-top: 13px;
+          color: #8b968c;
+          font-size: 10px;
         }
 
         .footer-status {
@@ -1063,26 +1018,34 @@ export default function EmployeeAccountManagement() {
 
         .empty {
           display: flex;
-          min-height: 190px;
+          min-height: 150px;
           flex-direction: column;
           align-items: center;
           justify-content: center;
           gap: 10px;
-          padding: 30px;
-          color: #899087;
+          padding: 35px 18px;
+          border: 1px dashed #dce5dc;
+          border-radius: 13px;
+          background: #fafbf9;
+          color: #8a958b;
           text-align: center;
+          font-size: 11px;
+          line-height: 1.8;
         }
 
         .empty strong {
-          color: #425345;
+          color: #42594a;
+          font-family: var(--font-manrope), sans-serif;
           font-size: 13px;
+          font-weight: 800;
         }
 
         .empty p {
           max-width: 350px;
+          margin: 0;
           color: #92998f;
-          font-size: 12px;
-          line-height: 1.6;
+          font-size: 11px;
+          line-height: 1.7;
         }
 
         .alert {
@@ -1091,8 +1054,10 @@ export default function EmployeeAccountManagement() {
           gap: 11px;
           padding: 15px 17px;
           border: 1px solid;
-          border-radius: 13px;
-          font-size: 12px;
+          border-radius: 12px;
+          font-size: 11px;
+          line-height: 1.7;
+          overflow-wrap: anywhere;
         }
 
         .alert strong {
@@ -1101,19 +1066,20 @@ export default function EmployeeAccountManagement() {
         }
 
         .alert p {
+          margin: 0;
           line-height: 1.6;
         }
 
         .success {
-          border-color: #cce2cf;
-          background: #edf6ee;
-          color: #28613b;
+          border-color: #dcebdd;
+          background: #f0f7ef;
+          color: #3c7046;
         }
 
         .danger {
-          border-color: #f1d0cb;
-          background: #fff2f0;
-          color: #a83e35;
+          border-color: #f0d9d5;
+          background: #fff5f3;
+          color: #a64d45;
         }
 
         .spin {
@@ -1126,23 +1092,15 @@ export default function EmployeeAccountManagement() {
           }
         }
 
-        @media (max-width: 800px) {
-          .employee-page {
-            padding: 20px;
-          }
-
-          .stats {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-          }
-
-          .stats .stat:last-child {
-            grid-column: 1 / -1;
+        @media (max-width: 900px) {
+          .table {
+            min-width: 580px;
           }
         }
 
-        @media (max-width: 560px) {
+        @media (max-width: 700px) {
           .employee-page {
-            padding: 14px;
+            padding: 20px;
           }
 
           .employee-container {
@@ -1150,54 +1108,65 @@ export default function EmployeeAccountManagement() {
           }
 
           .hero {
+            min-height: auto;
             padding: 23px 20px;
             border-radius: 17px;
           }
 
           .title {
-            font-size: 25px;
-          }
-
-          .subtitle {
-            font-size: 12px;
+            font-size: 26px;
           }
 
           .hero-icon {
-            display: none;
+            width: 48px;
+            height: 48px;
           }
 
           .stats {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 10px;
           }
 
           .stats .stat:last-child {
-            grid-column: auto;
+            grid-column: 1 / -1;
           }
 
           .stat {
+            min-height: 120px;
             padding: 16px;
+            border-radius: 13px;
           }
 
           .stat-value {
-            font-size: 26px;
+            font-size: 23px;
+          }
+
+          .panel {
+            padding: 23px 20px;
+            border-radius: 15px;
           }
 
           .panel-heading {
-            padding: 17px;
+            align-items: flex-start;
+            margin-bottom: 19px;
           }
 
-          .panel-body {
-            padding: 17px;
-          }
+       .heading-text {
+  flex: 1;
+  min-width: 0;
 
           .form-grid {
             grid-template-columns: 1fr;
-            gap: 17px;
+            gap: 15px;
           }
 
           .field-wrap.full {
             grid-column: auto;
+          }
+
+          .form-footer {
+            align-items: stretch;
+            flex-direction: column;
           }
 
           .form-footer .button {
@@ -1208,13 +1177,40 @@ export default function EmployeeAccountManagement() {
             align-items: flex-start;
           }
 
-          .reload {
-            width: 100%;
-            justify-content: center;
+          .table-footer {
+            padding: 0;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .employee-page {
+            padding: 14px;
           }
 
-          .table-footer {
-            padding: 13px 16px;
+          .stats {
+            grid-template-columns: 1fr;
+          }
+
+          .stats .stat:last-child {
+            grid-column: auto;
+          }
+
+          .stat {
+            min-height: 105px;
+          }
+
+          .hero,
+          .panel {
+            padding-left: 18px;
+            padding-right: 18px;
+          }
+
+          .title {
+            font-size: 26px;
+          }
+
+          .hero-icon {
+            display: none;
           }
         }
       `}</style>

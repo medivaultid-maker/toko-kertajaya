@@ -118,12 +118,12 @@ if (profile.is_active !== true) {
       password.length < 8
     ) {
       return NextResponse.json(
-        { error: "Pilih karyawan dan gunakan password minimal 8 karakter." },
+        { error: "Pilih pegawai dan gunakan password minimal 8 karakter." },
         { status: 400 }
       );
     }
 
-    // Ambil data karyawan
+    // Ambil data pegawai
     const { data: employee, error: employeeError } =
       await adminSupabase
         .from("employees")
@@ -133,21 +133,21 @@ if (profile.is_active !== true) {
 
     if (employeeError || !employee) {
       return NextResponse.json(
-        { error: "Data karyawan tidak ditemukan." },
+        { error: "Data pegawai tidak ditemukan." },
         { status: 404 }
       );
     }
 
     if (!employee.is_active) {
       return NextResponse.json(
-        { error: "Karyawan ini tidak aktif." },
+        { error: "pegawai ini tidak aktif." },
         { status: 400 }
       );
     }
 
     if (employee.profile_id) {
       return NextResponse.json(
-        { error: "Karyawan ini sudah memiliki akun." },
+        { error: "pegawai ini sudah memiliki akun." },
         { status: 409 }
       );
     }
@@ -160,7 +160,7 @@ if (profile.is_active !== true) {
     }
 
     // Email internal untuk Supabase Auth.
-    // Pegawai tidak perlu mengetahui atau menggunakan email ini.
+    // pegawai tidak perlu mengetahui atau menggunakan email ini.
     const internalEmail =
       `employee.${employee.employee_code.toLowerCase()}@employees.invalid`;
 
@@ -212,7 +212,7 @@ if (profile.is_active !== true) {
       );
     }
 
-    // Hubungkan akun dengan data karyawan
+    // Hubungkan akun dengan data pegawai
     const { error: updateEmployeeError } = await adminSupabase
       .from("employees")
       .update({ profile_id: newUserId })

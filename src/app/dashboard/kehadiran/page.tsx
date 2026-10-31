@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -121,11 +120,11 @@ export default function AttendancePage() {
                 MANAJEMEN KARYAWAN
               </div>
 
-              <h1 className="title">Kehadiran Pegawai</h1>
+              <h1 className="title">Kehadiran Karyawan</h1>
 
               <p className="subtitle">
                 Pantau aktivitas kehadiran dan riwayat absensi
-                seluruh pegawai Toko Rosyidah.
+                seluruh karyawan Toko Rosyidah.
               </p>
             </div>
 
@@ -134,12 +133,7 @@ export default function AttendancePage() {
             </div>
           </div>
 
-          <div className="hero-bottom">
-            <span className="count-chip">
-              <span className="count-dot" />
-              MONITORING KEHADIRAN
-            </span>
-          </div>
+          <div className="hero-bottom"></div>
         </section>
 
         {/* ERROR NOTIFICATION */}
@@ -186,7 +180,7 @@ export default function AttendancePage() {
               <p className="stat-caption">
                 {filterDate
                   ? "Tersedia pada tampilan semua tanggal"
-                  : "Pegawai tercatat hadir hari ini"}
+                  : "Karyawan tercatat hadir hari ini"}
               </p>
             </div>
 
@@ -206,76 +200,60 @@ export default function AttendancePage() {
                 <CalendarDays size={21} />
               </div>
 
-              <div>
+              <div className="heading-text">
                 <h2>Riwayat Kehadiran</h2>
                 <p>
                   Catatan kehadiran diurutkan dari yang terbaru.
                 </p>
               </div>
             </div>
-
-            <button
-              type="button"
-              onClick={() => void loadAttendance()}
-              disabled={loading}
-              className="button secondary reload"
-            >
-              <RefreshCw
-                size={15}
-                className={loading ? "spin" : ""}
-              />
-              Muat Ulang
-            </button>
           </div>
 
           <div className="panel-body">
 
-            {/* FILTER */}
-            <div className="filter-area">
-              <div className="filter-label">
-                <Filter size={15} />
-                FILTER DATA
-              </div>
+           {/* FILTER */}
+<div className="filter-area">
+  <div className="filter-label">
+    <Filter size={15} />
+    FILTER DATA
+  </div>
 
-              <div className="filter-controls">
-                <div className="field-wrap">
-                  <label className="field-label">
-                    Pilih Tanggal
-                  </label>
+  <div className="filter-controls">
+    <div className="field-wrap">
+      <label className="field-label">
+        <CalendarDays size={15} />
+        <span>Pilih Tanggal</span>
+      </label>
 
-                  <div className="date-input-wrap">
-                    <CalendarDays size={17} />
+      <div className="date-input-wrap">
+  <input
+    type="date"
+    value={filterDate}
+    onChange={(e) => setFilterDate(e.target.value)}
+    className="field date-field"
+  />
+</div>
+    </div>
 
-                    <input
-                      type="date"
-                      value={filterDate}
-                      onChange={(e) =>
-                        setFilterDate(e.target.value)
-                      }
-                      className="field date-field"
-                    />
-                  </div>
-                </div>
+    {filterDate && (
+      <button
+        type="button"
+        onClick={() => setFilterDate("")}
+        className="button clear-filter"
+      >
+        <X size={15} />
+        Hapus Filter
+      </button>
+    )}
+  </div>
 
-                {filterDate && (
-                  <button
-                    type="button"
-                    onClick={() => setFilterDate("")}
-                    className="button clear-filter"
-                  >
-                    <X size={15} />
-                    Hapus Filter
-                  </button>
-                )}
-              </div>
-
-              {filterDate && (
-                <p className="filter-description">
-                  Menampilkan catatan tanggal{" "}
-                  <strong>{formatDate(filterDate)}</strong>
-                </p>
-              )}
-            </div>
+  {filterDate && (
+    <p className="filter-description">
+      Menampilkan catatan tanggal{" "}
+      <strong>{formatDate(filterDate)}</strong>
+    </p>
+  )}
+</div>
 
             {/* LOADING */}
             {loading ? (
@@ -314,7 +292,7 @@ export default function AttendancePage() {
                 <p>
                   {filterDate
                     ? "Tidak ditemukan catatan kehadiran pada tanggal yang dipilih."
-                    : "Catatan kehadiran pegawai akan muncul di bagian ini."}
+                    : "Catatan kehadiran karyawan akan muncul di bagian ini."}
                 </p>
               </div>
             ) : (
@@ -325,8 +303,8 @@ export default function AttendancePage() {
                     <thead>
                       <tr>
                         <th>No.</th>
-                        <th>Kode Pegawai</th>
-                        <th>Nama Pegawai</th>
+                        <th>Kode Karyawan</th>
+                        <th>Nama Karyawan</th>
                         <th>Tanggal</th>
                         <th>Jam Hadir</th>
                         <th>Status</th>
@@ -434,23 +412,32 @@ export default function AttendancePage() {
           gap: 22px;
         }
 
+        /* HEADER */
         .hero {
           position: relative;
+          display: grid;
+          grid-template-columns: 1fr;
+          align-items: center;
+          gap: 24px;
+          min-height: 150px;
           overflow: hidden;
-          padding: 30px 34px 24px;
-          border-radius: 22px;
-          background: linear-gradient(
-            120deg,
-            var(--emerald-dark),
-            var(--emerald)
-          );
-          color: white;
-          box-shadow: 0 12px 30px rgba(16, 58, 42, 0.12);
+          padding: 30px 27px;
+          border: 1px solid #e5e9e1;
+          border-radius: 20px;
+          background:
+            radial-gradient(
+              circle at 92% 10%,
+              rgba(185, 154, 98, 0.13),
+              transparent 28%
+            ),
+            linear-gradient(115deg, #ffffff 0%, #f5f8f3 100%);
+          color: var(--ink);
+          box-shadow: 0 8px 28px rgba(24, 55, 37, 0.035);
         }
 
         .hero-decoration {
           position: absolute;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(185, 154, 98, 0.24);
           border-radius: 50%;
           pointer-events: none;
         }
@@ -482,59 +469,61 @@ export default function AttendancePage() {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          margin-bottom: 13px;
-          color: #e5d2a7;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 1.4px;
+          margin-bottom: 10px;
+          color: var(--gold);
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 2.4px;
         }
 
         .title {
           margin: 0;
+          color: var(--emerald-dark);
           font-family: var(--font-manrope), sans-serif;
-          font-size: 30px;
-          font-weight: 750;
-          letter-spacing: -0.8px;
+          font-size: clamp(27px, 3vw, 35px);
+          font-weight: 800;
+          letter-spacing: -1.4px;
+          line-height: 1.25;
         }
 
         .subtitle {
           max-width: 560px;
           margin-top: 8px;
-          color: rgba(255, 255, 255, 0.68);
-          font-size: 13px;
+          color: #89938a;
+          font-size: 12px;
           line-height: 1.7;
         }
 
         .hero-icon {
           display: flex;
-          width: 72px;
-          height: 72px;
+          width: 65px;
+          height: 65px;
           flex-shrink: 0;
           align-items: center;
           justify-content: center;
-          border: 1px solid rgba(213, 183, 122, 0.3);
-          border-radius: 19px;
-          background: rgba(255, 255, 255, 0.08);
-          color: #e4c98f;
+          border: 1px solid #e8dfca;
+          border-radius: 15px;
+          background: rgba(255, 255, 255, 0.8);
+          color: var(--gold);
         }
 
         .hero-bottom {
           position: relative;
           z-index: 1;
-          margin-top: 23px;
+          margin-top: 0;
         }
 
         .count-chip {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 7px 12px;
-          border: 1px solid rgba(255, 255, 255, 0.17);
-          border-radius: 30px;
-          background: rgba(255, 255, 255, 0.08);
-          color: rgba(255, 255, 255, 0.85);
+          padding: 8px 13px;
+          border: 1px solid #dce8de;
+          border-radius: 10px;
+          background: rgba(255, 255, 255, 0.85);
+          color: var(--emerald);
           font-size: 11px;
-          font-weight: 600;
+          font-weight: 800;
         }
 
         .count-dot,
@@ -545,44 +534,60 @@ export default function AttendancePage() {
           background: #8fc69a;
         }
 
+        /* STATISTICS */
         .stats {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
+          align-items: stretch;
           gap: 16px;
         }
 
         .stat {
+          position: relative;
           display: flex;
           min-width: 0;
+          min-height: 135px;
           align-items: center;
           justify-content: space-between;
           gap: 12px;
-          padding: 21px;
+          overflow: hidden;
+          padding: 22px 24px;
           border: 1px solid var(--line);
-          border-radius: 17px;
-          background: white;
-          box-shadow: 0 5px 20px rgba(30, 55, 43, 0.025);
+          border-radius: 16px;
+          background: #fff;
+          box-shadow: 0 5px 18px rgba(24, 55, 37, 0.035);
+          transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease;
+        }
+
+        .stat:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 10px 25px rgba(24, 55, 37, 0.07);
         }
 
         .stat-label {
-          color: var(--muted);
-          font-size: 12px;
-          font-weight: 600;
+          color: #7e8a80;
+          font-size: 11px;
+          font-weight: 700;
+          line-height: 1.5;
         }
 
         .stat-value {
-          margin-top: 8px;
+          margin-top: 11px;
           color: var(--emerald-dark);
           font-family: var(--font-manrope), sans-serif;
-          font-size: 30px;
-          font-weight: 750;
-          line-height: 1;
+          font-size: clamp(22px, 2vw, 27px);
+          font-weight: 800;
+          letter-spacing: -1px;
+          line-height: 1.25;
         }
 
         .stat-caption {
           margin-top: 7px;
-          color: #9ba299;
-          font-size: 11px;
+          color: #9aa39b;
+          font-size: 10px;
+          line-height: 1.6;
         }
 
         .stat-icon,
@@ -593,7 +598,7 @@ export default function AttendancePage() {
           flex-shrink: 0;
           align-items: center;
           justify-content: center;
-          border-radius: 13px;
+          border-radius: 12px;
         }
 
         .green,
@@ -607,39 +612,47 @@ export default function AttendancePage() {
           color: #a1844d;
         }
 
+        /* PANEL */
         .panel {
-          overflow: hidden;
+          min-width: 0;
+          padding: 27px;
           border: 1px solid var(--line);
           border-radius: 18px;
-          background: white;
-          box-shadow: 0 6px 24px rgba(30, 55, 43, 0.03);
+          background: #fff;
+          box-shadow: 0 6px 22px rgba(24, 55, 37, 0.035);
         }
 
         .panel-heading {
           display: flex;
-          align-items: center;
+          align-items: flex-start;
+          justify-content: flex-start;
           gap: 13px;
-          padding: 21px 25px;
-          border-bottom: 1px solid #eeefe9;
+          margin-bottom: 23px;
+          flex-wrap: nowrap;
+          text-align: left;
         }
 
         .panel-heading h2 {
-          color: #2b4033;
+          margin: 0 0 7px;
+          color: var(--emerald-dark);
           font-family: var(--font-manrope), sans-serif;
-          font-size: 15px;
-          font-weight: 750;
+          font-size: 17px;
+          font-weight: 800;
+          letter-spacing: -0.4px;
+          line-height: 1.4;
+          text-align: left;
         }
 
         .panel-heading p {
-          margin-top: 4px;
-          color: #899087;
+          margin: 0;
+          color: #89938a;
           font-size: 11px;
-          line-height: 1.5;
+          line-height: 1.75;
+          text-align: left;
         }
 
         .table-heading {
-          justify-content: space-between;
-          flex-wrap: wrap;
+          justify-content: flex-start;
         }
 
         .heading-left {
@@ -648,50 +661,23 @@ export default function AttendancePage() {
           gap: 13px;
         }
 
+        .heading-text {
+          flex: 1;
+          min-width: 0;
+          text-align: left;
+        }
+
         .panel-body {
-          padding: 25px;
+          padding: 0;
         }
 
-        .button {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 9px;
-          padding: 11px 15px;
-          border-radius: 10px;
-          font-family: inherit;
-          font-size: 12px;
-          font-weight: 700;
-          transition: all 0.2s;
-          cursor: pointer;
-        }
-
-        .button:disabled {
-          cursor: not-allowed;
-          opacity: 0.5;
-        }
-
-        .secondary {
-          border: 1px solid #e0e4dc;
-          background: white;
-          color: #526653;
-        }
-
-        .secondary:hover:not(:disabled) {
-          border-color: #a8bba8;
-          background: #f7f8f3;
-        }
-
-        .reload {
-          padding: 9px 13px;
-        }
-
+        /* FILTER */
         .filter-area {
           margin-bottom: 22px;
           padding: 17px;
-          border: 1px solid #eeede6;
-          border-radius: 13px;
-          background: #fcfcf9;
+          border: 1px solid #e8ece6;
+          border-radius: 12px;
+          background: #f8faf7;
         }
 
         .filter-label {
@@ -701,7 +687,7 @@ export default function AttendancePage() {
           margin-bottom: 13px;
           color: #758176;
           font-size: 10px;
-          font-weight: 750;
+          font-weight: 800;
           letter-spacing: 1px;
         }
 
@@ -721,10 +707,18 @@ export default function AttendancePage() {
         }
 
         .field-label {
-          color: #526054;
-          font-size: 12px;
-          font-weight: 700;
-        }
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  text-align: left;
+}
+
+.field-label svg {
+  color: #b99a62;
+  flex-shrink: 0;
+}
+        
 
         .date-input-wrap {
           position: relative;
@@ -732,38 +726,57 @@ export default function AttendancePage() {
 
         .date-input-wrap > svg {
           position: absolute;
-          top: 13px;
-          left: 13px;
-          color: #849087;
+          top: 14px;
+          left: 14px;
+          color: #8b968a;
           pointer-events: none;
         }
 
         .field {
           box-sizing: border-box;
+          display: block;
           width: 100%;
-          height: 44px;
-          padding: 11px 13px;
-          border: 1px solid #dedfd5;
+          min-width: 0;
+          min-height: 46px;
+          padding: 0 14px;
+          border: 1px solid #e2e8e1;
           border-radius: 10px;
           outline: none;
-          background: #fffefa;
-          color: var(--ink);
+          background: #fff;
+          color: #304136;
           font-family: inherit;
           font-size: 12px;
-          transition: border-color 0.2s, box-shadow 0.2s;
+          transition:
+            border-color 0.18s ease,
+            box-shadow 0.18s ease;
         }
 
         .field:focus {
-          border-color: #47745c;
-          box-shadow: 0 0 0 3px rgba(71, 116, 92, 0.1);
+          border-color: #789b83;
+          box-shadow: 0 0 0 3px rgba(45, 105, 68, 0.09);
         }
 
         .date-field {
           padding-left: 40px;
         }
 
+        .button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 9px;
+          min-height: 44px;
+          padding: 0 17px;
+          border: 0;
+          border-radius: 9px;
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+          transition: all 0.18s ease;
+        }
+
         .clear-filter {
-          height: 44px;
           border: 1px solid #ead9d4;
           background: #fff8f6;
           color: #a35d50;
@@ -783,47 +796,53 @@ export default function AttendancePage() {
           color: #526653;
         }
 
+        /* TABLE */
         .table-wrap {
           width: 100%;
           overflow-x: auto;
+          border: 1px solid #e7ece6;
+          border-radius: 13px;
         }
 
         .table {
           width: 100%;
           min-width: 760px;
-          border-collapse: collapse;
+          border-collapse: separate;
+          border-spacing: 0;
           text-align: left;
-          font-size: 12px;
+          font-size: 11px;
         }
 
         .table thead {
-          background: #f8f8f3;
+          background: #f5f7f3;
         }
 
         .table th {
-          padding: 14px 16px;
-          border-bottom: 1px solid #eeede6;
-          color: #818a7f;
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.7px;
-          text-transform: uppercase;
+          padding: 15px 16px;
+          border-bottom: 1px solid #e6ebe5;
+          color: #66766a;
+          text-align: left;
           white-space: nowrap;
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 0.45px;
         }
 
         .table td {
-          padding: 15px 16px;
-          border-bottom: 1px solid #f0efe9;
-          color: #59665a;
+          padding: 16px;
+          border-bottom: 1px solid #edf0eb;
+          color: #758077;
+          vertical-align: middle;
+          line-height: 1.5;
           white-space: nowrap;
         }
 
         .table tbody tr {
-          transition: background 0.15s;
+          transition: background 0.15s ease;
         }
 
         .table tbody tr:hover {
-          background: #fafbf7;
+          background: #f8faf7;
         }
 
         .table tbody tr:last-child td {
@@ -868,8 +887,9 @@ export default function AttendancePage() {
         }
 
         .name {
-          color: #334638;
-          font-weight: 700;
+          color: #2c4033;
+          font-size: 12px;
+          font-weight: 800;
         }
 
         .date-text {
@@ -896,31 +916,33 @@ export default function AttendancePage() {
         .status {
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 7px;
+          min-height: 29px;
           padding: 6px 10px;
           border: 1px solid;
-          border-radius: 30px;
-          font-size: 10px;
-          font-weight: 700;
+          border-radius: 8px;
+          font-size: 9px;
+          font-weight: 800;
+          white-space: nowrap;
         }
 
         .status.approved {
-          border-color: #cce2cf;
+          border-color: #dcebdd;
           background: #edf6ed;
-          color: #397047;
+          color: #3e754b;
         }
 
+        /* TABLE FOOTER */
         .table-footer {
           display: flex;
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
           gap: 12px;
-          padding: 14px 20px;
-          border-top: 1px solid #eeede6;
-          background: #fcfcf9;
-          color: #92998f;
-          font-size: 11px;
+          margin-top: 13px;
+          color: #8b968c;
+          font-size: 10px;
         }
 
         .footer-status {
@@ -936,16 +958,22 @@ export default function AttendancePage() {
           color: #56815c;
         }
 
+        /* EMPTY STATE */
         .empty {
           display: flex;
-          min-height: 190px;
+          min-height: 150px;
           flex-direction: column;
           align-items: center;
           justify-content: center;
           gap: 10px;
-          padding: 30px;
-          color: #899087;
+          padding: 35px 18px;
+          border: 1px dashed #dce5dc;
+          border-radius: 13px;
+          background: #fafbf9;
+          color: #8a958b;
           text-align: center;
+          font-size: 11px;
+          line-height: 1.8;
         }
 
         .empty-icon {
@@ -955,40 +983,49 @@ export default function AttendancePage() {
           align-items: center;
           justify-content: center;
           margin-bottom: 3px;
-          border-radius: 17px;
-          background: #f1f3ed;
-          color: #829080;
+          border-radius: 15px;
+          background: #edf4ef;
+          color: #47745c;
         }
 
         .empty strong {
-          color: #425345;
+          color: #42594a;
+          font-family: var(--font-manrope), sans-serif;
           font-size: 13px;
+          font-weight: 800;
         }
 
         .empty p {
           max-width: 350px;
+          margin: 0;
           color: #92998f;
-          font-size: 12px;
-          line-height: 1.6;
+          font-size: 11px;
+          line-height: 1.7;
         }
 
         .primary {
-          background: var(--emerald);
+          background: linear-gradient(135deg, #205a3e, #123d2b);
           color: white;
+          box-shadow: 0 4px 11px rgba(23, 75, 54, 0.16);
         }
 
         .primary:hover {
-          background: var(--emerald-dark);
+          background: #0e3525;
+          box-shadow: 0 6px 15px rgba(23, 75, 54, 0.22);
+          transform: translateY(-1px);
         }
 
+        /* ALERT */
         .alert {
           display: flex;
           align-items: flex-start;
           gap: 11px;
           padding: 15px 17px;
           border: 1px solid;
-          border-radius: 13px;
-          font-size: 12px;
+          border-radius: 12px;
+          font-size: 11px;
+          line-height: 1.7;
+          overflow-wrap: anywhere;
         }
 
         .alert strong {
@@ -997,13 +1034,14 @@ export default function AttendancePage() {
         }
 
         .alert p {
+          margin: 0;
           line-height: 1.6;
         }
 
         .danger {
-          border-color: #f1d0cb;
-          background: #fff2f0;
-          color: #a83e35;
+          border-color: #f0d9d5;
+          background: #fff5f3;
+          color: #a64d45;
         }
 
         .spin {
@@ -1016,19 +1054,16 @@ export default function AttendancePage() {
           }
         }
 
-        @media (max-width: 800px) {
-          .attendance-page {
-            padding: 20px;
-          }
-
-          .stats {
-            grid-template-columns: 1fr;
+        /* RESPONSIVE */
+        @media (max-width: 900px) {
+          .table {
+            min-width: 760px;
           }
         }
 
-        @media (max-width: 560px) {
+        @media (max-width: 700px) {
           .attendance-page {
-            padding: 14px;
+            padding: 20px;
           }
 
           .attendance-container {
@@ -1036,45 +1071,47 @@ export default function AttendancePage() {
           }
 
           .hero {
+            min-height: auto;
             padding: 23px 20px;
             border-radius: 17px;
           }
 
           .title {
-            font-size: 25px;
-          }
-
-          .subtitle {
-            font-size: 12px;
-          }
-
-          .hero-icon {
-            display: none;
-          }
-
-          .stat {
-            padding: 16px;
-          }
-
-          .stat-value {
             font-size: 26px;
           }
 
+          .hero-icon {
+            width: 48px;
+            height: 48px;
+          }
+
+          .stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+          }
+
+          .stat {
+            min-height: 120px;
+            padding: 16px;
+            border-radius: 13px;
+          }
+
+          .stat-value {
+            font-size: 23px;
+          }
+
+          .panel {
+            padding: 23px 20px;
+            border-radius: 15px;
+          }
+
           .panel-heading {
-            padding: 17px;
-          }
-
-          .panel-body {
-            padding: 17px;
-          }
-
-          .table-heading {
             align-items: flex-start;
+            margin-bottom: 19px;
           }
 
-          .reload {
-            width: 100%;
-            justify-content: center;
+          .filter-area {
+            padding: 15px;
           }
 
           .filter-controls {
@@ -1091,7 +1128,35 @@ export default function AttendancePage() {
           }
 
           .table-footer {
-            padding: 13px 16px;
+            padding: 0;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .attendance-page {
+            padding: 14px;
+          }
+
+          .stats {
+            grid-template-columns: 1fr;
+          }
+
+          .stat {
+            min-height: 105px;
+          }
+
+          .hero,
+          .panel {
+            padding-left: 18px;
+            padding-right: 18px;
+          }
+
+          .title {
+            font-size: 26px;
+          }
+
+          .hero-icon {
+            display: none;
           }
         }
       `}</style>

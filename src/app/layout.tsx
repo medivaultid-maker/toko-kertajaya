@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: "%s | Toko Rosyidah",
   },
   description:
-    "Sistem manajemen Toko Rosyidah untuk pengelolaan stok, kulakan, harga jual, transaksi kasir, karyawan, dan laporan keuangan.",
+    "Sistem manajemen Toko Rosyidah untuk pengelolaan stok, kulakan, harga jual, transaksi kasir, pegawai, dan laporan keuangan.",
   applicationName: "Toko Rosyidah",
   appleWebApp: {
     capable: true,

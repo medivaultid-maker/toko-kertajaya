@@ -325,10 +325,24 @@ async function openEmployeeDebt(employee: DebtSummary) {
   }
 
   function addAnotherItem() {
-    setError("");
-    setMessage("");
-    document.getElementById("employee-debt-product-code")?.focus();
+  setError("");
+  setMessage("");
+
+  const input = document.getElementById(
+    "employee-debt-product-code"
+  ) as HTMLInputElement | null;
+
+  if (input) {
+    input.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    setTimeout(() => {
+      input.focus();
+    }, 300);
   }
+}
 
   async function saveDebt() {
   setError("");
@@ -433,11 +447,12 @@ async function openEmployeeDebt(employee: DebtSummary) {
     );
 
     setItems([]);
-    setEmployeeId("");
-    setNotes("");
-    setCode("");
+setEmployeeId("");
+setNotes("");
+setCode("");
 
-    await loadDebtSummaries();
+await loadDebtSummaries();
+setActiveView("list");
   } catch (err) {
     setError(
       err instanceof Error
@@ -934,12 +949,26 @@ async function openEmployeeDebt(employee: DebtSummary) {
     box-shadow: 0 4px 18px rgba(25, 55, 37, 0.035);
   }
 
-  .section-heading {
-    display: flex;
-    align-items: center;
-    gap: 13px;
-    margin-bottom: 21px;
-  }
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start !important;
+  gap: 13px;
+  width: 100%;
+  margin-bottom: 21px;
+  text-align: left !important;
+}
+
+.section-heading > div:last-child {
+  flex: 0 1 auto;
+  margin-left: 0 !important;
+  text-align: left !important;
+}
+
+.section-heading h2,
+.section-heading p {
+  text-align: left !important;
+}
 
   .section-icon {
     display: grid;
@@ -1393,6 +1422,554 @@ async function openEmployeeDebt(employee: DebtSummary) {
       grid-template-columns: 1fr;
     }
   }
+
+/* ==========================================
+   FINAL DESIGN — PIUTANG PEGAWAI
+   SIGMA / TOKO ROSYIDAH EMERALD & GOLD THEME
+========================================== */
+
+.debt-page {
+  --emerald: #174b36;
+  --emerald-dark: #103a2a;
+  --emerald-soft: #edf4ef;
+  --gold: #b99a62;
+  --ivory: #f8f8f4;
+  --ink: #26352c;
+  --muted: #849087;
+  --line: #e8ece6;
+
+  width: 100%;
+  max-width: 1440px;
+  min-height: 100vh;
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  background: var(--ivory);
+  color: var(--ink);
+  font-family: var(--font-dm-sans), sans-serif;
+}
+
+/* HEADER */
+.debt-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 150px;
+  padding: 30px 27px;
+  overflow: hidden;
+  border: 1px solid #e5e9e1;
+  border-radius: 20px;
+  background:
+    radial-gradient(
+      circle at 92% 15%,
+      rgba(185, 154, 98, 0.13),
+      transparent 25%
+    ),
+    linear-gradient(120deg, #ffffff 0%, #f1f6f0 100%);
+  box-shadow: 0 4px 18px rgba(25, 55, 37, 0.035);
+}
+
+.eyebrow {
+  margin-bottom: 9px;
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2.4px;
+}
+
+.title {
+  margin: 0;
+  color: var(--emerald-dark);
+  font-family: var(--font-manrope), sans-serif;
+  font-size: clamp(27px, 3vw, 35px);
+  font-weight: 800;
+  letter-spacing: -1.1px;
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* NAVIGATION TABS */
+.debt-tabs {
+  display: flex;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.debt-tab {
+  min-height: 42px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #778275;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.debt-tab:hover:not(.active) {
+  background: var(--emerald-soft);
+  color: var(--emerald);
+}
+
+.debt-tab.active {
+  background: var(--emerald);
+  color: white;
+  box-shadow: 0 3px 8px rgba(23, 75, 54, 0.12);
+}
+
+/* MAIN CARD */
+.card {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 27px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(25, 55, 37, 0.035);
+}
+
+/* SECTION HEADING */
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 13px;
+  width: 100%;
+  margin-bottom: 23px;
+  text-align: left;
+}
+
+.section-heading > div:last-child {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  text-align: left;
+}
+
+.section-heading h2,
+.section-heading p {
+  text-align: left;
+}
+
+.section-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 45px;
+  height: 45px;
+  border: 1px solid #e2eae2;
+  border-radius: 13px;
+  background: var(--emerald-soft);
+  color: var(--emerald);
+  font-size: 21px;
+  font-weight: 800;
+}
+
+.section-heading h2 {
+  margin: 0 0 5px;
+  color: var(--emerald-dark);
+  font-family: var(--font-manrope), sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.section-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* FORM */
+.field-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #455248;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.field {
+  min-height: 46px;
+  border: 1px solid #e0e6df;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.field:focus {
+  border-color: var(--emerald);
+  box-shadow: 0 0 0 3px rgba(23, 75, 54, 0.09);
+}
+
+.search-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.search-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.button {
+  min-height: 46px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.button-primary {
+  background: var(--emerald);
+  color: #fff;
+}
+
+.button-primary:hover:not(:disabled) {
+  background: var(--emerald-dark);
+}
+
+.button-secondary {
+  border: 1px solid #dfe8df;
+  background: var(--emerald-soft);
+  color: var(--emerald);
+}
+
+/* TABLE */
+.table-wrap {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+}
+
+.table th {
+  padding: 15px 14px;
+  background: #f5f7f3;
+  color: #657469;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.table td {
+  padding: 15px 14px;
+}
+
+.table tbody tr:hover {
+  background: #fafbf9;
+}
+
+/* EMPTY STATE */
+.empty {
+  padding: 35px 18px;
+  border: 1px dashed #dce5da;
+  border-radius: 13px;
+  background: #fafbf9;
+  text-align: center;
+}
+
+.empty-icon {
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 12px;
+  border: 1px solid #e3ebe1;
+  border-radius: 13px;
+  background: var(--emerald-soft);
+  color: var(--emerald);
+}
+
+/* TOTAL SUMMARY */
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 25px;
+  padding: 22px;
+  border: 1px solid #e2e9df;
+  border-radius: 15px;
+  background: #f7f9f5;
+}
+
+.total-label {
+  color: #778275;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.total-value {
+  color: var(--emerald);
+  font-family: var(--font-manrope), sans-serif;
+  font-size: clamp(25px, 3vw, 32px);
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+/* DEBT OVERVIEW */
+.debt-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.debt-overview-item {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 21px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: #fff;
+}
+
+.debt-overview-item.highlight {
+  border-color: #dce8dc;
+  background: var(--emerald-soft);
+}
+
+/* EMPLOYEE DEBT LIST */
+.employee-debt-list,
+.debt-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  margin-top: 20px;
+}
+
+.employee-debt-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 17px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+  transition: 0.2s ease;
+}
+
+.employee-debt-card:hover {
+  border-color: #b8cbb9;
+  background: #fafcf9;
+  transform: translateY(-1px);
+}
+
+.employee-avatar {
+  width: 43px;
+  height: 43px;
+  border-radius: 12px;
+  background: var(--emerald-soft);
+  color: var(--emerald);
+}
+
+.employee-avatar.large {
+  width: 52px;
+  height: 52px;
+}
+
+.employee-debt-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.employee-debt-info strong {
+  color: var(--emerald-dark);
+}
+
+.employee-debt-balance strong {
+  color: var(--emerald);
+}
+
+/* DETAIL */
+.employee-detail-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 25px 0 20px;
+}
+
+.employee-detail-heading h2 {
+  margin: 0;
+  color: var(--emerald-dark);
+  font-family: var(--font-manrope), sans-serif;
+  font-size: 20px;
+}
+
+.debt-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.debt-detail-stat {
+  padding: 19px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #fafbf8;
+}
+
+/* HISTORY */
+.debt-history-card {
+  padding: 19px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.debt-status {
+  padding: 6px 11px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.debt-status.paid {
+  background: #edf5ee;
+  color: #347044;
+}
+
+.debt-status.unpaid {
+  background: #fff4e8;
+  color: #a66a25;
+}
+
+/* ALERT */
+.alert {
+  border-radius: 12px;
+  padding: 15px 17px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 700px) {
+  .debt-page {
+    padding: 20px;
+    gap: 16px;
+  }
+
+  .debt-hero {
+    min-height: 135px;
+    padding: 23px 20px;
+    border-radius: 17px;
+  }
+
+  .title {
+    font-size: 27px;
+  }
+
+  .card {
+    padding: 23px 20px;
+    border-radius: 15px;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+    gap: 11px;
+  }
+
+  .section-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .search-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .search-row .button {
+    width: 100%;
+  }
+
+  .summary {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 18px;
+  }
+
+  .save-button {
+    width: 100%;
+  }
+
+  .debt-tabs {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .debt-tab {
+    flex: 1;
+    padding: 0 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .debt-overview,
+  .debt-detail-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .employee-debt-card {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .employee-debt-balance {
+    width: 100%;
+    align-items: flex-start;
+    padding-left: 53px;
+  }
+
+  .employee-chevron {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 380px) {
+  .debt-page {
+    padding: 14px;
+    gap: 15px;
+  }
+
+  .debt-hero {
+    padding: 22px 18px;
+  }
+
+  .card {
+    padding: 20px 18px;
+  }
+
+  .debt-tabs {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .debt-tab {
+    font-size: 11px;
+  }
+}
+
 `}</style>
 
       <header className="debt-hero">
@@ -1404,10 +1981,9 @@ async function openEmployeeDebt(employee: DebtSummary) {
           </p>
         </div>
 
-        <div className="count-chip">
-          <span className="count-number">{items.length}</span>
-          <span>Jenis barang</span>
-        </div>
+    
+       
+       
       </header>
 
 <div className="debt-tabs">
@@ -1607,36 +2183,26 @@ async function openEmployeeDebt(employee: DebtSummary) {
           </div>
         )}
 
-        <div className="add-more">
-          <button
-            type="button"
-            className="button button-secondary"
-            onClick={addAnotherItem}
-          >
-            + Tambah Barang Lagi
-          </button>
-        </div>
+       <div className="add-more">
+  <button
+    type="button"
+    className="button button-secondary"
+    onClick={() => addAnotherItem()}
+  >
+    <span style={{ fontSize: "17px" }}>＋</span>
+    Tambah Barang Lagi
+  </button>
+</div>
 
         <div className="divider" />
 
-        <label className="field-label" htmlFor="debt-notes">
-          Catatan tambahan <span className="optional">(opsional)</span>
-        </label>
-        <textarea
-          id="debt-notes"
-          className="field notes"
-          value={notes}
-          onChange={(event) => setNotes(event.target.value)}
-          placeholder="Contoh: pembayaran dipotong dari gaji minggu ini..."
-          rows={3}
-        />
 
         <div className="summary">
           <div>
             <div className="total-label">TOTAL PIUTANG</div>
             <div className="total-value">{rupiah(total)}</div>
             <div className="total-caption">
-              {items.length} jenis barang · Belum termasuk pembayaran
+              {items.length} jenis barang 
             </div>
           </div>
 
@@ -1651,20 +2217,29 @@ async function openEmployeeDebt(employee: DebtSummary) {
         </div>
       </section>
 
-      <aside className="info-box">
-        <span className="info-icon">i</span>
-        <div>
-         <strong>Informasi pencatatan stok</strong>
-Setiap piutang yang berhasil disimpan akan otomatis mengurangi
-stok barang sesuai jumlah yang diambil. 
-        </div>
-        
-    </aside>
+   
+    
+  
   </>
 )}
   
 {activeView === "list" && (
   <section className="card">
+    {(error || message) && (
+  <div
+    role={error ? "alert" : "status"}
+    className={`alert ${
+      error ? "alert-error" : "alert-success"
+    }`}
+    style={{ marginBottom: 20 }}
+  >
+    <span className="alert-icon">{error ? "!" : "✓"}</span>
+    <div>
+      <strong>{error ? "Gagal memuat data" : "Berhasil"}</strong>
+      <div>{error || message}</div>
+    </div>
+  </div>
+)}
     <div className="section-heading">
       <div className="section-icon">♙</div>
       <div>
