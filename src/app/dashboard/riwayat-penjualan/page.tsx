@@ -288,7 +288,7 @@ export default function RiwayatPenjualanPage() {
           <div>
             <div className="history-eyebrow">
               <span className="history-eyebrow-dot" />
-              TOKO ROSYIDAH · PASAR SEBAUNG
+              TOKO ROSYIDAH · SEBAUNG
             </div>
             <h1>Riwayat Penjualan</h1>
             <p>
@@ -562,7 +562,7 @@ export default function RiwayatPenjualanPage() {
               <div className="history-receipt-brand">
                 <div className="history-receipt-logo">R</div>
                 <h2>TOKO ROSYIDAH</h2>
-                <p>Pasar Sebaung</p>
+                <p>Sebaung</p>
                 <span>{selectedSale.receipt_number}</span>
                 <small>{dateLabel(selectedSale.created_at)}</small>
               </div>

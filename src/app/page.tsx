@@ -18,12 +18,12 @@ export default function PublicHome() {
 
           <div>
             <strong>Toko Rosyidah</strong>
-            <span>Pasar Sebaung</span>
+            <span>Sebaung</span>
           </div>
         </div>
 
         <Link href="/login" className="public-login-button">
-          Login Owner / Pegawai
+          Login
           <ShieldCheck size={17} />
         </Link>
       </header>
@@ -52,7 +52,7 @@ export default function PublicHome() {
               href="/login"
               className="public-primary-button"
             >
-              Masuk ke Sistem
+              Login
               <ShieldCheck size={18} />
             </Link>
           </div>
@@ -78,70 +78,6 @@ export default function PublicHome() {
             </div>
           </div>
         </div>
-      </section>
-
-      <section className="public-information">
-        <div className="public-section-heading">
-          <span>INFORMASI TOKO</span>
-
-          <h2>Selalu Siap Melayani</h2>
-
-          <p>
-            Informasi singkat mengenai Toko Rosyidah.
-          </p>
-        </div>
-
-        <div className="public-information-grid">
-          <div className="public-information-card">
-            <div className="public-information-icon">
-              <Store size={24} />
-            </div>
-
-            <h3>Lokasi Toko</h3>
-            <p>Pasar Sebaung</p>
-          </div>
-
-          <div className="public-information-card">
-            <div className="public-information-icon">
-              <PackagePlus size={24} />
-            </div>
-
-            <h3>Kebutuhan Harian</h3>
-            <p>
-              Menyediakan berbagai kebutuhan toko.
-            </p>
-          </div>
-
-          <div className="public-information-card">
-            <div className="public-information-icon">
-              <ShieldCheck size={24} />
-            </div>
-
-            <h3>Pelayanan</h3>
-            <p>
-              Mengedepankan pelayanan yang nyaman.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="public-login-section">
-        <div>
-          <h3>Area Khusus Owner dan Pegawai</h3>
-
-          <p>
-            Silakan login untuk mengakses sistem
-            pengelolaan toko.
-          </p>
-        </div>
-
-        <Link
-          href="/login"
-          className="public-login-section-button"
-        >
-          Login Sekarang
-          <ShieldCheck size={17} />
-        </Link>
       </section>
 
       <footer className="public-footer">

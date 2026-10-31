@@ -413,7 +413,7 @@ export default function KulakanPage() {
             <div>
               <div className="intake-eyebrow">
                 <Sparkles size={12} />
-                TOKO ROSYIDAH · PASAR SEBAUNG
+                TOKO ROSYIDAH · SEBAUNG
               </div>
 
               <h1>Input Kulakan</h1>

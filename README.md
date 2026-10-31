@@ -38,7 +38,7 @@ Di Windows PowerShell, jika `cp` tidak tersedia, gunakan:
 
 ## 5. Aturan bisnis yang sudah dirancang
 - Nama struk: TOKO ROSYIDAH
-- Alamat struk: Pasar Sebaung
+- Alamat struk: Sebaung
 - Persentase keuntungan ditetapkan per produk dan dihitung sebagai markup dari harga kulakan.
 - Penginput kulakan tidak menentukan persentase keuntungan/harga jual.
 - Perubahan harga berlaku untuk transaksi baru; transaksi lama menyimpan snapshot harga jual, harga pokok, dan keuntungan.

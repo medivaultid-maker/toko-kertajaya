@@ -368,7 +368,7 @@ export default function KasirPage() {
             <div>
               <div className="cashier-eyebrow">
                 <Sparkles size={12} />
-                TOKO ROSYIDAH · PASAR SEBAUNG
+                TOKO ROSYIDAH · SEBAUNG
               </div>
               <h1>Kasir</h1>
               <p>Catat transaksi penjualan dengan cepat dan praktis.</p>
@@ -724,7 +724,7 @@ export default function KasirPage() {
                 <ShoppingCart size={22} />
               </div>
               <h2>TOKO ROSYIDAH</h2>
-              <p>Pasar Sebaung</p>
+              <p>Sebaung</p>
               <span>BUKTI PEMBAYARAN</span>
               <strong>{receipt.receipt_number}</strong>
             </div>

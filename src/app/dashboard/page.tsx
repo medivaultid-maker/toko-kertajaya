@@ -14,13 +14,12 @@ import HargaPage from "./harga/page";
 import KasirPage from "./kasir/page";
 import RiwayatPenjualanPage from "./riwayat-penjualan/page";
 
-import EmployeeDebtManagement from "@/components/employee-debt-management";
-import EmployeeManagement from "@/components/employee-management";
-import ProductManagement from "@/components/product-management";
-import EmployeeAccountManagement from "@/components/employee-account-management";
-import EmployeeDashboard from "@/components/employee-dashboard";
-import AttendancePage from "@/components/attendance-page";
-import EmployeePayrollManagement from "@/components/employee-payroll-management";
+import EmployeeDebtManagement from "./piutang-pegawai/page";
+import EmployeeManagement from "./data-pegawai/page";
+import ProductManagement from "./barang-stock/page";
+import EmployeeAccountManagement from "./akun-pegawai/page";
+import AttendancePage from "./kehadiran/page";
+import EmployeePayrollManagement from "./gaji-pegawai/page";
 
 import {
   Bell,
@@ -472,26 +471,48 @@ export default function Home() {
 
     void loadPendingIntakes();
 
-    const channel = supabase
-      .channel("dashboard-pending-intakes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "purchase_intakes",
-        },
-        () => {
-          void loadPendingIntakes();
-          void loadDashboardStats();
-        }
-      )
-      .subscribe();
+  // =====================================================
+// REALTIME SUPABASE - OWNER DASHBOARD
+// =====================================================
 
-    return () => {
-      mounted = false;
-      void supabase.removeChannel(channel);
-    };
+const realtimeTables = [
+  "products",
+  "sales",
+  "sale_items",
+  "purchase_intakes",
+  "employees",
+  "employee_attendance",
+  "employee_debts",
+  "employee_payrolls",
+];
+
+const channel = supabase.channel("owner-dashboard-realtime");
+
+realtimeTables.forEach((table) => {
+  channel.on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: table,
+    },
+    () => {
+      void loadDashboardStats();
+
+      if (table === "purchase_intakes") {
+        void loadPendingIntakes();
+      }
+    }
+  );
+});
+
+channel.subscribe();
+
+return () => {
+  mounted = false;
+  void supabase.removeChannel(channel);
+};
+
   }, [
     supabase,
     authLoading,
@@ -564,10 +585,36 @@ export default function Home() {
     );
   }
 
-  // Dashboard khusus karyawan
-  if (userRole === "employee") {
-    return <EmployeeDashboard userName={userName} />;
-  }
+// =====================================================
+// AKSES DASHBOARD OWNER
+// =====================================================
+
+const isOwner = ["owner", "admin", "pemilik"].includes(
+  userRole.toLowerCase()
+);
+
+if (userRole === "employee") {
+  return (
+    <main className="loading-screen">
+      <div className="loading-content">
+        <strong>Mengarahkan ke Dashboard Karyawan...</strong>
+        <div className="loading-spinner" />
+      </div>
+    </main>
+  );
+}
+
+if (!isOwner) {
+  return (
+    <main className="loading-screen">
+      <div className="loading-content">
+        <strong>Akses tidak diizinkan</strong>
+        <span>Dashboard ini khusus pemilik toko.</span>
+        <button onClick={handleLogout}>Keluar</button>
+      </div>
+    </main>
+  );
+}
 
   // =====================================================
   // DASHBOARD OWNER / ADMIN
@@ -614,7 +661,7 @@ export default function Home() {
 
         <div className="store-address">
           <span className="store-address-dot" />
-          Pasar Sebaung
+          Sebaung
         </div>
 
         <div className="menu-label">MENU UTAMA</div>

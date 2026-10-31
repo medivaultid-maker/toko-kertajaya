@@ -71,13 +71,15 @@ return;
 
       const result = await response.json();
 
-      if (!response.ok) {
-        setError(result.error || "Login pegawai gagal.");
-        return;
-      }
+     if (!response.ok) {
+  setError(result.error || "Login pegawai gagal.");
+  return;
+}
 
-      router.replace(result.redirect || "/dashboard");
+// Login berhasil → masuk dashboard pegawai
+router.replace("/pegawai");
 router.refresh();
+return;
     } catch (err) {
       console.error("Login error:", err);
       setError("Terjadi kesalahan. Periksa koneksi internet kamu.");
@@ -97,10 +99,7 @@ router.refresh();
     <main className="login-page">
       <div className="login-container">
         <Link href="/" className="login-back">
-  <span className="login-back-icon">
-    <ArrowLeft size={16} strokeWidth={2} />
-  </span>
-  <span className="login-back-text">Kembali ke Beranda</span>
+
 </Link>
 
         <section className="login-card">
@@ -110,7 +109,7 @@ router.refresh();
             </div>
 
             <h1>Toko Rosyidah</h1>
-            <p>Sistem Manajemen Toko &amp; Kasir</p>
+            <p>Sistem Manajemen Toko</p>
           </div>
 
           <div className="login-divider" />
@@ -286,7 +285,7 @@ router.refresh();
         <footer className="login-footer">
           <span>© {new Date().getFullYear()} Toko Rosyidah</span>
           <span className="footer-dot">•</span>
-          <span>Pasar Sebaung</span>
+          <span>Sebaung</span>
         </footer>
       </div>
 

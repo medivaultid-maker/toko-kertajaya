@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
    return NextResponse.json({
   success: true,
-  redirect: "/dashboard",
+  redirect: "/pegawai",
 });
   } catch (error) {
     console.error("Employee login error:", error);
