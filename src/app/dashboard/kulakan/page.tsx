@@ -1,10 +1,9 @@
 
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { createClient } from "@/lib/supabase";
 import {
-  ArrowLeft,
   Package,
   CalendarDays,
   Hash,
@@ -23,48 +22,89 @@ import {
   Sparkles,
   ShoppingBag,
   Search,
-  Tag,
   Boxes,
   Check,
-  RotateCcw,
+  Scale,
+  CreditCard,
+  RefreshCw,
 } from "lucide-react";
+
+type PurchaseMode = "coded" | "loose";
+type PaymentMethod = "cash" | "transfer" | "qris";
 
 type Product = {
   id: string;
-  product_code: string;
+  product_code: string | null;
   name: string;
   brand: string;
   category_id: string;
+  unit: string;
 };
 
 type IntakeItem = {
+  mode: PurchaseMode;
   date: string;
   productId: string;
   productCode: string;
   name: string;
   brand: string;
-  category: string;
   quantity: string;
+  unit: string;
   purchasePrice: string;
+  supplierName: string;
+  paidAmount: string;
+  paymentMethod: PaymentMethod;
+  paymentDate: string;
+  note: string;
 };
 
-const todayLocal = () => {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+type PurchaseHistory = {
+  id: string;
+  mode: "coded" | "loose";
+  purchase_date: string;
+  product_name: string;
+  product_code: string | null;
+  brand: string;
+  quantity: number;
+  unit: string;
+  purchase_price: number;
+  total_amount: number;
+  paid_amount: number;
+  remaining_amount: number;
+  payment_status: string;
+  created_at: string;
+};
+
+const getTodayWIB = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const year = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+
   return `${year}-${month}-${day}`;
 };
 
-const emptyItem = (): IntakeItem => ({
-  date: todayLocal(),
+const emptyItem = (mode: PurchaseMode = "coded"): IntakeItem => ({
+  mode,
+  date: getTodayWIB(),
   productId: "",
   productCode: "",
   name: "",
   brand: "",
-  category: "",
   quantity: "",
+  unit: "",
   purchasePrice: "",
+  supplierName: "",
+  paidAmount: "0",
+  paymentMethod: "cash",
+  paymentDate: getTodayWIB(),
+  note: "",
 });
 
 const rupiah = (value: number) =>
@@ -72,60 +112,153 @@ const rupiah = (value: number) =>
     style: "currency",
     currency: "IDR",
     maximumFractionDigits: 0,
-  }).format(value);
+  }).format(Number(value || 0));
 
 const formatDate = (value: string) =>
-  new Date(`${value}T00:00:00`).toLocaleDateString("id-ID", {
+  new Date(`${value}T12:00:00+07:00`).toLocaleDateString("id-ID", {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    timeZone: "Asia/Jakarta",
   });
+
+const lineTotal = (row: IntakeItem) =>
+  Number(row.quantity || 0) * Number(row.purchasePrice || 0);
+
+const paidValue = (row: IntakeItem) =>
+  Number(row.paidAmount || 0);
+
+const remainingValue = (row: IntakeItem) =>
+  Math.max(0, lineTotal(row) - paidValue(row));
+
+const paymentLabel = (row: IntakeItem) => {
+  const paid = paidValue(row);
+  const total = lineTotal(row);
+
+  if (paid <= 0) return "Belum dibayar";
+  if (paid >= total) return "Lunas";
+  return "Dibayar sebagian";
+};
+
+function getHistoryStatusClass(status: string) {
+  if (status === "Lunas") return "tag-paid";
+  if (status === "Dibayar sebagian") return "tag-partial";
+  return "tag-unpaid";
+}
 
 export default function KulakanPage() {
   const [supabase] = useState(() => createClient());
 
   const [products, setProducts] = useState<Product[]>([]);
-  const [item, setItem] = useState<IntakeItem>(emptyItem);
+  const [item, setItem] = useState<IntakeItem>(emptyItem());
   const [items, setItems] = useState<IntakeItem[]>([]);
 
+  const [history, setHistory] = useState<PurchaseHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [checking, setChecking] = useState(false);
   const [checkedCode, setCheckedCode] = useState("");
 
+  const [checking, setChecking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
-  async function loadData() {
+  // =========================================
+  // LOAD MASTER PRODUK
+  // =========================================
+
+  const loadProducts = useCallback(async () => {
     setLoading(true);
-    setError("");
 
     try {
-      const { data, error } = await supabase
+      const { data, error: queryError } = await supabase
         .from("products")
-        .select("id, product_code, name, brand, category_id")
+        .select("id, product_code, name, brand, category_id, unit")
+        .not("product_code", "is", null)
         .order("name");
 
-      if (error) throw error;
+      if (queryError) throw queryError;
 
-      setProducts(data || []);
+      setProducts((data || []) as Product[]);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Gagal mengambil data barang."
+        err instanceof Error
+          ? err.message
+          : "Gagal mengambil data barang."
       );
     } finally {
       setLoading(false);
     }
+  }, [supabase]);
+
+  // =========================================
+  // LOAD RIWAYAT KULAKAN TERSIMPAN
+  // =========================================
+
+  const loadHistory = useCallback(async () => {
+  setHistoryLoading(true);
+
+  try {
+    const { data, error: rpcError } = await supabase.rpc(
+      "get_purchase_intake_history"
+    );
+
+    if (rpcError) {
+      console.error("RIWAYAT KULAKAN ERROR:", rpcError);
+      throw rpcError;
+    }
+
+    setHistory((data || []) as PurchaseHistory[]);
+    console.log("RIWAYAT KULAKAN BERHASIL:", data);
+  } catch (err: unknown) {
+    console.error("GAGAL MEMUAT RIWAYAT:", err);
+
+    const detail =
+      typeof err === "object" && err !== null && "message" in err
+        ? String(err.message)
+        : String(err);
+
+    setError(`Gagal memuat riwayat kulakan: ${detail}`);
+  } finally {
+    setHistoryLoading(false);
   }
+}, [supabase]);
+
+  // =========================================
+  // LOAD DATA SAAT HALAMAN DIBUKA
+  // =========================================
 
   useEffect(() => {
-    void loadData();
-  }, []);
+    void loadProducts();
+    void loadHistory();
+  }, [loadProducts, loadHistory]);
+
+  // =========================================
+  // UPDATE FORM
+  // =========================================
 
   function update(field: keyof IntakeItem, value: string) {
-    setItem((old) => ({ ...old, [field]: value }));
+    setItem((old) => {
+      if (field === "productCode") {
+        return {
+          ...old,
+          productCode: value,
+          productId: "",
+          name: "",
+          brand: "",
+          unit: "",
+        };
+      }
+
+      return {
+        ...old,
+        [field]: value,
+      };
+    });
 
     if (field === "productCode") {
       setSelectedProduct(null);
@@ -136,12 +269,28 @@ export default function KulakanPage() {
     setMessage("");
   }
 
+  function changeMode(mode: PurchaseMode) {
+    if (editingIndex !== null) {
+      setError("Selesaikan atau batalkan proses edit terlebih dahulu.");
+      return;
+    }
+
+    setItem(emptyItem(mode));
+    setSelectedProduct(null);
+    setCheckedCode("");
+    setError("");
+    setMessage("");
+  }
+
+  // =========================================
+  // CEK BARCODE
+  // =========================================
+
   async function checkProduct() {
     const code = item.productCode.trim();
 
     if (!code) {
       setError("Masukkan kode barang terlebih dahulu.");
-      setSelectedProduct(null);
       return;
     }
 
@@ -152,112 +301,186 @@ export default function KulakanPage() {
     setCheckedCode("");
 
     try {
-      const { data, error } = await supabase
+      const { data, error: queryError } = await supabase
         .from("products")
-        .select("id, product_code, name, brand, category_id")
+        .select("id, product_code, name, brand, category_id, unit")
         .eq("product_code", code)
         .maybeSingle();
 
-      if (error) throw error;
+      if (queryError) throw queryError;
 
       if (!data) {
-        setError(`Kode barang "${code}" tidak ditemukan. Periksa kembali kode barang.`);
-        return;
+        throw new Error(
+          `Kode barang "${code}" tidak ditemukan di master produk.`
+        );
       }
 
-      setSelectedProduct(data);
-      setCheckedCode(data.product_code);
+      const product = data as Product;
+
+      setSelectedProduct(product);
+      setCheckedCode(product.product_code || "");
 
       setItem((old) => ({
         ...old,
-        productId: data.id,
-        productCode: data.product_code,
-        name: data.name,
-        brand: data.brand || "",
+        productId: product.id,
+        productCode: product.product_code || "",
+        name: product.name,
+        brand: product.brand || "",
+        unit: product.unit || "pcs",
       }));
 
-      setMessage("Barang berhasil ditemukan. Silakan lengkapi jumlah dan harga kulakan.");
+      setMessage(
+        "Barang ditemukan. Lengkapi jumlah, harga kulakan, dan pembayarannya."
+      );
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Gagal memeriksa kode barang."
+        err instanceof Error
+          ? err.message
+          : "Gagal memeriksa kode barang."
       );
     } finally {
       setChecking(false);
     }
   }
 
-  const totalQuantity = items.reduce(
-    (sum, row) => sum + Number(row.quantity),
+  // =========================================
+  // TOTAL DAFTAR SEMENTARA
+  // =========================================
+
+  const totalValue = items.reduce(
+    (sum, row) => sum + lineTotal(row),
     0
   );
 
-  const totalValue = items.reduce(
-    (sum, row) =>
-      sum + Number(row.quantity) * Number(row.purchasePrice),
+  const totalPaid = items.reduce(
+    (sum, row) => sum + paidValue(row),
     0
   );
+
+  const totalRemaining = items.reduce(
+    (sum, row) => sum + remainingValue(row),
+    0
+  );
+
+  // =========================================
+  // TAMBAH KE DAFTAR SEMENTARA
+  // =========================================
 
   function addItem(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
     setError("");
     setMessage("");
 
     const quantity = Number(item.quantity);
     const price = Number(item.purchasePrice);
+    const paid = Number(item.paidAmount || 0);
+    const total = quantity * price;
 
-    if (
-      !selectedProduct ||
-      checkedCode !== item.productCode.trim() ||
-      selectedProduct.id !== item.productId
-    ) {
-      setError("Periksa kode barang terlebih dahulu sebelum menambahkan kulakan.");
+    if (!item.date) {
+      setError("Tanggal kulakan wajib diisi.");
       return;
     }
 
     if (
-      !item.date ||
       !Number.isFinite(quantity) ||
       quantity <= 0 ||
-      !Number.isInteger(quantity) ||
-      !Number.isFinite(price) ||
-      price <= 0
+      (item.mode === "coded" && !Number.isInteger(quantity))
     ) {
       setError(
-        "Lengkapi tanggal, jumlah, dan harga kulakan. Jumlah harus bilangan bulat positif dan harga harus lebih dari nol."
+        item.mode === "coded"
+          ? "Jumlah barang berkode harus berupa bilangan bulat positif."
+          : "Jumlah kulakan curah harus lebih dari nol."
       );
       return;
     }
 
+    if (
+      !Number.isFinite(price) ||
+      price <= 0 ||
+      !Number.isInteger(price)
+    ) {
+      setError("Harga kulakan harus berupa nominal rupiah positif.");
+      return;
+    }
+
+    if (
+      !Number.isFinite(paid) ||
+      paid < 0 ||
+      !Number.isInteger(paid) ||
+      paid > total
+    ) {
+      setError(
+        "Nominal yang dibayar harus berupa rupiah positif atau nol, dan tidak boleh melebihi total kulakan."
+      );
+      return;
+    }
+
+    if (item.mode === "coded") {
+      if (
+        !selectedProduct ||
+        checkedCode !== item.productCode.trim() ||
+        selectedProduct.id !== item.productId
+      ) {
+        setError("Periksa kode barang terlebih dahulu.");
+        return;
+      }
+    } else {
+      if (!item.name.trim()) {
+        setError("Nama barang curah wajib diisi.");
+        return;
+      }
+
+      if (!item.unit.trim()) {
+        setError("Satuan barang wajib diisi, misalnya kg atau sak.");
+        return;
+      }
+    }
+
+    if (paid > 0 && !item.paymentDate) {
+      setError("Tanggal pembayaran wajib diisi.");
+      return;
+    }
+
+    const newRow = { ...item };
+
     if (editingIndex !== null) {
       setItems((old) =>
         old.map((row, index) =>
-          index === editingIndex ? { ...item } : row
+          index === editingIndex ? newRow : row
         )
       );
 
       setEditingIndex(null);
       setMessage("Data kulakan berhasil diperbarui dalam daftar.");
     } else {
-      setItems((old) => [...old, { ...item }]);
-      setMessage("Barang berhasil ditambahkan ke daftar kulakan.");
+      setItems((old) => [...old, newRow]);
+      setMessage("Kulakan berhasil ditambahkan ke daftar.");
     }
 
-    setItem((old) => ({
-      ...emptyItem(),
-      date: old.date,
-    }));
-
+    setItem(emptyItem(item.mode));
     setSelectedProduct(null);
     setCheckedCode("");
   }
 
+  // =========================================
+  // EDIT DAFTAR SEMENTARA
+  // =========================================
+
   function editItem(index: number) {
     const row = items[index];
-    const product = products.find((p) => p.id === row.productId);
 
     setItem({ ...row });
-    setSelectedProduct(product || null);
-    setCheckedCode(product?.product_code || "");
+
+    if (row.mode === "coded") {
+      const product = products.find((p) => p.id === row.productId);
+      setSelectedProduct(product || null);
+      setCheckedCode(product?.product_code || "");
+    } else {
+      setSelectedProduct(null);
+      setCheckedCode("");
+    }
+
     setEditingIndex(index);
     setError("");
     setMessage("");
@@ -290,8 +513,12 @@ export default function KulakanPage() {
     setMessage("");
   }
 
+  // =========================================
+  // SIMPAN KULAKAN
+  // =========================================
+
   async function saveItems() {
-    if (!items.length || saving) return;
+    if (!items.length || saving || editingIndex !== null) return;
 
     setSaving(true);
     setError("");
@@ -305,55 +532,104 @@ export default function KulakanPage() {
         error: authError,
       } = await supabase.auth.getUser();
 
-      if (authError || !user) {
+      if (authError) throw authError;
+
+      if (!user) {
         throw new Error("Sesi login berakhir. Silakan login kembali.");
       }
 
       for (const row of items) {
-        const product = products.find((p) => p.id === row.productId);
+        const paid = paidValue(row);
 
-        if (!product) {
-          throw new Error(
-            `Barang dengan kode "${row.productCode}" tidak ditemukan lagi. Muat ulang halaman dan periksa kembali.`
+        if (row.mode === "coded") {
+          const product = products.find(
+            (p) => p.id === row.productId
           );
-        }
 
-        const { data: intake, error: intakeError } = await supabase
-          .from("purchase_intakes")
-          .insert({
-            product_id: product.id,
-            purchase_date: row.date,
-            quantity_received: Number(row.quantity),
-            quantity_remaining: 0,
-            purchase_price: Number(row.purchasePrice),
-            status: "pending_price",
-            entered_by: user.id,
-          })
-          .select("id")
-          .single();
+          if (!product) {
+            throw new Error(
+              `Produk "${row.name}" tidak ditemukan lagi. Muat ulang halaman.`
+            );
+          }
 
-        if (intakeError) {
-          throw new Error(
-            `Kulakan "${row.name}" gagal disimpan: ${intakeError.message}`
+          const { data, error: rpcError } = await supabase.rpc(
+            "create_coded_purchase_intake",
+            {
+              p_product_id: row.productId,
+              p_purchase_date: row.date,
+              p_quantity: Number(row.quantity),
+              p_purchase_price: Number(row.purchasePrice),
+              p_paid_amount: paid,
+              p_payment_method: paid > 0 ? row.paymentMethod : null,
+              p_payment_date: paid > 0 ? row.paymentDate : null,
+              p_supplier_name: row.supplierName.trim() || null,
+              p_note: row.note.trim() || null,
+            }
           );
-        }
 
-        savedCount += 1;
+          if (rpcError) {
+            throw new Error(
+              `Kulakan "${row.name}" gagal disimpan: ${rpcError.message}`
+            );
+          }
 
-        const { error: notificationError } = await supabase
-          .from("notifications")
-          .insert({
-            recipient_role: "admin",
-            title: "Kulakan baru menunggu persetujuan",
-            message: `${row.name} - ${row.brand}, kode ${row.productCode}, jumlah ${row.quantity}. Harga jual perlu ditetapkan.`,
-            related_intake_id: intake.id,
-            is_read: false,
-          });
+          if (!data?.success || !data?.intake_id) {
+            throw new Error(
+              `Respons penyimpanan kulakan "${row.name}" tidak valid.`
+            );
+          }
 
-        if (notificationError) {
-          throw new Error(
-            `Kulakan "${row.name}" sudah tersimpan, tetapi notifikasi gagal dibuat: ${notificationError.message}`
+          savedCount += 1;
+
+          // Notifikasi untuk persetujuan harga barang berkode
+          const { error: notificationError } = await supabase
+            .from("notifications")
+            .insert({
+              recipient_role: "admin",
+              title: "Kulakan baru menunggu persetujuan",
+              message:
+                `${row.name} - ${row.brand || "Tanpa merek"}, ` +
+                `kode ${row.productCode}, jumlah ${row.quantity} ${row.unit}. ` +
+                `Harga jual perlu ditetapkan.`,
+              related_intake_id: data.intake_id,
+              is_read: false,
+            });
+
+          if (notificationError) {
+            throw new Error(
+              `Kulakan "${row.name}" sudah tersimpan, tetapi notifikasi admin gagal: ${notificationError.message}`
+            );
+          }
+        } else {
+          const { data, error: rpcError } = await supabase.rpc(
+            "create_loose_purchase_intake",
+            {
+              p_purchase_date: row.date,
+              p_product_name: row.name.trim(),
+              p_quantity: Number(row.quantity),
+              p_unit: row.unit.trim(),
+              p_purchase_price: Number(row.purchasePrice),
+              p_supplier_name: row.supplierName.trim() || null,
+              p_paid_amount: paid,
+              p_payment_method: paid > 0 ? row.paymentMethod : null,
+              p_payment_date: paid > 0 ? row.paymentDate : null,
+              p_note: row.note.trim() || null,
+            }
           );
+
+          if (rpcError) {
+            throw new Error(
+              `Kulakan curah "${row.name}" gagal disimpan: ${rpcError.message}`
+            );
+          }
+
+          if (!data?.success || !data?.intake_id) {
+            throw new Error(
+              `Respons penyimpanan kulakan curah "${row.name}" tidak valid.`
+            );
+          }
+
+          savedCount += 1;
         }
       }
 
@@ -364,10 +640,11 @@ export default function KulakanPage() {
       setEditingIndex(null);
 
       setMessage(
-        `${savedCount} data kulakan berhasil disimpan. Barang menunggu persetujuan harga admin sebelum stok dapat dijual.`
+        `${savedCount} data kulakan berhasil disimpan. Pembayaran aktual telah dicatat sesuai metode dan tanggal yang dipilih.`
       );
 
-      await loadData();
+      // Muat ulang riwayat permanen setelah penyimpanan
+      await loadHistory();
     } catch (err) {
       setError(
         `${
@@ -376,1423 +653,1263 @@ export default function KulakanPage() {
             : "Gagal menyimpan data kulakan."
         }${
           savedCount > 0
-            ? ` ${savedCount} baris telah tersimpan sebelum proses terhenti. Periksa data kulakan di database sebelum mencoba lagi agar tidak terjadi duplikasi.`
+            ? ` ${savedCount} baris sudah tersimpan sebelum proses terhenti. Periksa riwayat dan pembayaran sebelum mencoba lagi agar tidak terjadi duplikasi.`
             : ""
         }`
       );
+
+      // Tetap muat riwayat untuk menampilkan baris yang mungkin sudah berhasil
+      await loadHistory();
     } finally {
       setSaving(false);
     }
   }
 
+  // =========================================
+  // LOADING AWAL
+  // =========================================
+
   if (loading) {
     return (
       <main className="intake-loading">
-        <div className="intake-loading-icon">
-          <LoaderCircle size={25} className="intake-spin" />
-        </div>
+        <LoaderCircle size={26} className="spin" />
         <p>Menyiapkan data kulakan...</p>
       </main>
     );
   }
 
+  const currentTotal =
+    Number(item.quantity || 0) * Number(item.purchasePrice || 0);
+
+  const currentPaid = Number(item.paidAmount || 0);
+
+  const currentRemaining = Math.max(
+    0,
+    currentTotal - currentPaid
+  );
+
+  // =========================================
+  // TAMPILAN
+  // =========================================
+
   return (
-  <main className="intake-page">
-    <style jsx>{`
-
-.intake-page {
-  --emerald: #174b36;
-  --emerald-dark: #103a2a;
-  --emerald-soft: #edf4ef;
-  --gold: #b99a62;
-  --ink: #26352c;
-  --muted: #849087;
-  --line: #e8ece6;
-
-  width: 100%;
-  min-height: 100vh;
-  padding: 26px 28px 34px;
-  background: #f8f8f4;
-  color: var(--ink);
-  font-family: var(--font-dm-sans), sans-serif;
-  box-sizing: border-box;
-}
-
-.intake-container {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  display: grid;
-  gap: 20px;
-  box-sizing: border-box;
-}
-
-/* BACK BUTTON */
-.intake-back {
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-start;
-  gap: 8px;
-  color: #718075;
-  font-size: 11px;
-  font-weight: 700;
-  text-decoration: none;
-  transition: .18s ease;
-}
-
-.intake-back:hover {
-  color: var(--emerald);
-  transform: translateX(-2px);
-}
-
-/* HEADER */
-.intake-header {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  min-height: 145px;
-  overflow: hidden;
-  padding: 28px 30px;
-  border: 1px solid #e5e9e1;
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 92% 10%, rgba(185,154,98,.13), transparent 28%),
-    linear-gradient(115deg, #fff 0%, #f5f8f3 100%);
-  box-shadow: 0 7px 24px rgba(24,55,37,.035);
-}
-
-.intake-header::before {
-  content: "";
-  position: absolute;
-  width: 210px;
-  height: 210px;
-  top: -110px;
-  right: 40px;
-  border: 1px solid rgba(185,154,98,.16);
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.intake-header::after {
-  content: "";
-  position: absolute;
-  width: 170px;
-  height: 170px;
-  right: 100px;
-  bottom: -125px;
-  border: 1px solid rgba(185,154,98,.22);
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.intake-heading {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 17px;
-  min-width: 0;
-}
-
-.intake-heading-icon {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 55px;
-  height: 55px;
-  border: 1px solid #dce8de;
-  border-radius: 15px;
-  background: var(--emerald-soft);
-  color: var(--emerald);
-}
-
-.intake-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: 8px;
-  color: var(--gold);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 2px;
-}
-
-.intake-heading h1 {
-  margin: 0;
-  color: var(--emerald-dark);
-  font-family: var(--font-manrope), sans-serif;
-  font-size: clamp(27px, 3vw, 34px);
-  font-weight: 800;
-  letter-spacing: -1.2px;
-}
-
-.intake-heading p {
-  margin: 8px 0 0;
-  color: #7b877e;
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.intake-header-tag {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  flex-shrink: 0;
-  min-height: 40px;
-  padding: 0 14px;
-  border: 1px solid #dce8de;
-  border-radius: 10px;
-  background: rgba(255,255,255,.9);
-  color: var(--emerald);
-  font-size: 10px;
-  font-weight: 800;
-}
-
-/* ALERT */
-.intake-alert {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 15px 17px;
-  border-radius: 12px;
-  font-size: 11px;
-  line-height: 1.7;
-}
-
-.intake-alert > svg {
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.intake-alert > div {
-  flex: 1;
-  min-width: 0;
-}
-
-.intake-alert strong {
-  display: block;
-  margin-bottom: 3px;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.intake-alert p {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.intake-alert-error {
-  border: 1px solid #f0d9d5;
-  background: #fff5f3;
-  color: #a64d45;
-}
-
-.intake-alert-success {
-  border: 1px solid #dcebdd;
-  background: #f0f7ef;
-  color: #3c7046;
-}
-
-.intake-alert-close {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 27px;
-  height: 27px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-}
-
-/* MAIN CARD */
-.intake-card {
-  min-width: 0;
-  padding: 27px 29px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 5px 20px rgba(24,55,37,.035);
-}
-
-/* SECTION HEADING */
-.intake-section-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: 14px;
-  width: 100%;
-  margin-bottom: 25px;
-  text-align: left;
-}
-
-.intake-section-icon {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border: 1px solid #dce8de;
-  border-radius: 12px;
-  background: var(--emerald-soft);
-  color: var(--emerald);
-}
-
-.intake-section-heading > div:nth-child(2) {
-  flex: 1;
-  min-width: 0;
-  text-align: left;
-}
-
-.intake-section-heading h2 {
-  margin: 1px 0 6px;
-  color: var(--emerald-dark);
-  font-family: var(--font-manrope), sans-serif;
-  font-size: 17px;
-  font-weight: 800;
-  line-height: 1.4;
-  text-align: left;
-}
-
-.intake-section-heading p {
-  margin: 0;
-  color: #89938a;
-  font-size: 11px;
-  line-height: 1.7;
-  text-align: left;
-}
-
-.intake-step {
-  flex-shrink: 0;
-  padding: 8px 11px;
-  border: 1px solid #e8dfca;
-  border-radius: 8px;
-  background: #fbf8f0;
-  color: #927545;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: .7px;
-}
-
-/* FORM */
-.intake-field {
-  min-width: 0;
-}
-
-.intake-label {
-  display: block;
-  margin-bottom: 9px;
-  color: #526157;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.intake-code-row {
-  display: flex;
-  align-items: stretch;
-  gap: 11px;
-}
-
-.intake-input-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  width: 100%;
-}
-
-.intake-code-input-wrap {
-  flex: 1;
-}
-
-.intake-input-icon {
-  position: absolute;
-  left: 14px;
-  display: flex;
-  align-items: center;
-  color: #8a988d;
-  pointer-events: none;
-}
-
-.intake-input {
-  display: block;
-  width: 100%;
-  min-width: 0;
-  height: 46px;
-  box-sizing: border-box;
-  padding: 0 14px 0 43px;
-  border: 1px solid #e2e8e1;
-  border-radius: 10px;
-  outline: none;
-  background: #fff;
-  color: #304136;
-  font-family: inherit;
-  font-size: 12px;
-  transition: border-color .18s ease, box-shadow .18s ease;
-}
-
-.intake-input::placeholder {
-  color: #b1b9b1;
-}
-
-.intake-input:focus {
-  border-color: #789b83;
-  box-shadow: 0 0 0 3px rgba(45,105,68,.09);
-}
-
-.intake-input[type="date"] {
-  color-scheme: light;
-}
-
-.intake-field-hint {
-  margin: 9px 0 0;
-  color: #9aa39b;
-  font-size: 10px;
-  line-height: 1.7;
-}
-
-/* BUTTON */
-.intake-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 17px;
-  border: 0;
-  border-radius: 10px;
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: all .18s ease;
-  white-space: nowrap;
-}
-
-.intake-btn-primary {
-  background: linear-gradient(135deg, #205a3e, #123d2b);
-  color: #fff;
-  box-shadow: 0 4px 11px rgba(23,75,54,.14);
-}
-
-.intake-btn-primary:hover:not(:disabled) {
-  background: #0e3525;
-  transform: translateY(-1px);
-}
-
-.intake-btn-secondary {
-  border: 1px solid #dce7dd;
-  background: #f0f5f0;
-  color: var(--emerald);
-}
-
-.intake-btn-secondary:hover {
-  background: #e5efe6;
-}
-
-.intake-btn:disabled {
-  opacity: .48;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.intake-check-btn {
-  flex-shrink: 0;
-  min-width: 125px;
-}
-
-/* PRODUCT PREVIEW */
-.intake-product-preview {
-  margin-top: 21px;
-  padding: 20px;
-  border: 1px solid #dcebdd;
-  border-radius: 14px;
-  background: #f7faf6;
-}
-
-.intake-product-preview-top {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-}
-
-.intake-product-preview-icon {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 45px;
-  height: 45px;
-  border: 1px solid #dcebdd;
-  border-radius: 12px;
-  background: #edf6ed;
-  color: #477b51;
-}
-
-.intake-product-preview-title {
-  flex: 1;
-  min-width: 0;
-}
-
-.intake-product-found {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-bottom: 5px;
-  color: #3e754b;
-  font-size: 9px;
-  font-weight: 800;
-}
-
-.intake-product-preview-title h3 {
-  margin: 0;
-  color: var(--emerald-dark);
-  font-family: var(--font-manrope), sans-serif;
-  font-size: 15px;
-  font-weight: 800;
-}
-
-.intake-product-preview-title p {
-  margin: 4px 0 0;
-  color: #89938a;
-  font-size: 10px;
-}
-
-.intake-product-code {
-  flex-shrink: 0;
-  padding: 7px 10px;
-  border: 1px solid #e3e9df;
-  border-radius: 8px;
-  background: #fff;
-  color: #718075;
-  font-size: 10px;
-  font-weight: 800;
-}
-
-.intake-product-preview-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 22px;
-  margin-top: 17px;
-  padding-top: 14px;
-  border-top: 1px solid #e5ece3;
-}
-
-.intake-product-preview-meta div {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: #728477;
-  font-size: 10px;
-}
-
-.intake-product-preview-meta svg {
-  color: #64836c;
-}
-
-/* INPUT GRID */
-.intake-form-grid {
-  display: grid;
-  gap: 17px;
-  margin-top: 24px;
-}
-
-.intake-form-grid-three {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-/* NOTE */
-.intake-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-top: 21px;
-  padding: 15px 16px;
-  border: 1px solid #e8e8dc;
-  border-radius: 11px;
-  background: #faf9f4;
-}
-
-.intake-note-icon {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  background: #f2eddf;
-  color: #9a8150;
-}
-
-.intake-note strong {
-  display: block;
-  margin-bottom: 4px;
-  color: #6e654f;
-  font-size: 10px;
-  font-weight: 800;
-}
-
-.intake-note p {
-  margin: 0;
-  color: #8a8779;
-  font-size: 10px;
-  line-height: 1.7;
-}
-
-/* FORM ACTIONS */
-.intake-form-actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 10px;
-  margin-top: 23px;
-  padding-top: 19px;
-  border-top: 1px solid #edf0eb;
-}
-
-/* LIST */
-.intake-list-card {
-  padding-bottom: 25px;
-}
-
-.intake-list-heading {
-  align-items: center;
-}
-
-.intake-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  gap: 7px;
-  margin-left: auto;
-  padding: 8px 12px;
-  border: 1px solid #e8dfca;
-  border-radius: 8px;
-  background: #fbf8f0;
-  color: #927545;
-  font-size: 10px;
-  font-weight: 800;
-}
-
-/* EMPTY STATE */
-.intake-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 44px 20px;
-  border: 1px dashed #dce5dc;
-  border-radius: 13px;
-  background: #fafbf9;
-  text-align: center;
-}
-
-.intake-empty-icon {
-  display: grid;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  margin-bottom: 15px;
-  border-radius: 16px;
-  background: #edf4ef;
-  color: #64836c;
-}
-
-.intake-empty h3 {
-  margin: 0 0 8px;
-  color: #42594a;
-  font-family: var(--font-manrope), sans-serif;
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.intake-empty p {
-  max-width: 350px;
-  margin: 0;
-  color: #8a958b;
-  font-size: 11px;
-  line-height: 1.8;
-}
-
-/* TABLE */
-.intake-table-wrap {
-  width: 100%;
-  overflow-x: auto;
-  border: 1px solid #e8ece6;
-  border-radius: 12px;
-  scrollbar-width: thin;
-  scrollbar-color: #cbd8cb #f5f7f3;
-}
-
-.intake-table {
-  width: 100%;
-  min-width: 850px;
-  border-collapse: separate;
-  border-spacing: 0;
-  background: #fff;
-  text-align: left;
-}
-
-.intake-table thead {
-  background: #f2f6f1;
-}
-
-.intake-table th {
-  padding: 14px 13px;
-  border-bottom: 1px solid #e5ebe3;
-  color: #607365;
-  font-size: 10px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.intake-table td {
-  padding: 15px 13px;
-  border-bottom: 1px solid #edf0eb;
-  color: #68776b;
-  font-size: 10px;
-  vertical-align: middle;
-  white-space: nowrap;
-}
-
-.intake-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-.intake-table tbody tr {
-  transition: background .15s ease;
-}
-
-.intake-table tbody tr:hover {
-  background: #fafcf9;
-}
-
-.intake-table tbody tr.intake-row-editing {
-  background: #fbf8f0;
-}
-
-.intake-date-cell {
-  color: #78877b !important;
-}
-
-.intake-category {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 9px;
-  border: 1px solid #e3e9df;
-  border-radius: 7px;
-  background: #f4f7f2;
-  color: var(--emerald);
-  font-size: 9px;
-  font-weight: 800;
-}
-
-.intake-product-name {
-  color: #304136 !important;
-  font-weight: 800;
-}
-
-.intake-quantity {
-  color: #526b59 !important;
-  font-weight: 700;
-}
-
-.intake-money {
-  color: #718075 !important;
-  font-weight: 600;
-}
-
-.intake-total {
-  color: var(--emerald) !important;
-  font-weight: 800;
-}
-
-/* TABLE ACTIONS */
-.intake-row-actions {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.intake-icon-btn {
-  display: grid;
-  place-items: center;
-  width: 31px;
-  height: 31px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: .15s ease;
-}
-
-.intake-edit-btn {
-  border: 1px solid #e8dfca;
-  background: #fbf8f0;
-  color: #9a8150;
-}
-
-.intake-edit-btn:hover {
-  background: #f3eddf;
-}
-
-.intake-delete-btn {
-  border: 1px solid #f0deda;
-  background: #fff5f3;
-  color: #ae5148;
-}
-
-.intake-delete-btn:hover {
-  background: #fce9e5;
-}
-
-.intake-icon-btn:disabled {
-  opacity: .45;
-  cursor: not-allowed;
-}
-
-/* SUMMARY */
-.intake-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 20px;
-}
-
-.intake-summary {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-width: 0;
-  padding: 19px;
-  border: 1px solid #e5ebe3;
-  border-radius: 13px;
-  background: #fafcf9;
-}
-
-.intake-summary-icon {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 43px;
-  height: 43px;
-  border: 1px solid #dce8de;
-  border-radius: 12px;
-  background: #edf4ef;
-  color: var(--emerald);
-}
-
-.intake-summary p {
-  margin: 0 0 6px;
-  color: #849087;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.intake-summary strong {
-  display: block;
-  color: var(--emerald-dark);
-  font-family: var(--font-manrope), sans-serif;
-  font-size: 19px;
-  font-weight: 800;
-  overflow-wrap: anywhere;
-}
-
-.intake-summary strong small {
-  color: #849087;
-  font-family: var(--font-dm-sans), sans-serif;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.intake-summary-value {
-  border-color: #e8dfca;
-  background: #fbf9f3;
-}
-
-.intake-summary-value .intake-summary-icon {
-  border-color: #e8dfca;
-  background: #f5f0e4;
-  color: #9a8150;
-}
-
-/* SAVE AREA */
-.intake-save-area {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  margin-top: 21px;
-  padding-top: 20px;
-  border-top: 1px solid #edf0eb;
-}
-
-.intake-save-info {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  min-width: 0;
-  max-width: 650px;
-}
-
-.intake-save-info-icon {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 31px;
-  height: 31px;
-  border-radius: 9px;
-  background: #f5f0e4;
-  color: #9a8150;
-}
-
-.intake-save-info p {
-  margin: 2px 0 0;
-  color: #8a958b;
-  font-size: 10px;
-  line-height: 1.8;
-}
-
-.intake-save-btn {
-  flex-shrink: 0;
-  min-width: 175px;
-  min-height: 47px;
-}
-
-/* FOOTER */
-.intake-footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  padding: 13px;
-  color: #a0aaa1;
-  font-size: 10px;
-  text-align: center;
-}
-
-.intake-footer span:first-child {
-  color: #607564;
-  font-weight: 800;
-  letter-spacing: .7px;
-}
-
-.intake-footer-dot {
-  color: var(--gold);
-}
-
-/* LOADING */
-.intake-loading {
-  display: flex;
-  min-height: 65vh;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 13px;
-  color: var(--emerald);
-  background: #f8f8f4;
-  font-size: 12px;
-}
-
-.intake-loading p {
-  margin: 0;
-  color: #849087;
-}
-
-.intake-loading-icon {
-  display: grid;
-  place-items: center;
-  width: 52px;
-  height: 52px;
-  border: 1px solid #dce8de;
-  border-radius: 15px;
-  background: #edf4ef;
-  color: var(--emerald);
-}
-
-.intake-spin {
-  animation: intake-spin 1s linear infinite;
-}
-
-@keyframes intake-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* TABLET */
-@media (max-width: 900px) {
-  .intake-page {
-    padding: 22px 20px 30px;
-  }
-
-  .intake-form-grid-three {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .intake-save-area {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .intake-save-btn {
-    width: 100%;
-  }
-}
-
-/* MOBILE */
-@media (max-width: 600px) {
-  .intake-page {
-    padding: 18px 14px 25px;
-  }
-
-  .intake-container {
-    gap: 16px;
-  }
-
-  .intake-header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 17px;
-    min-height: auto;
-    padding: 23px 20px;
-    border-radius: 17px;
-  }
-
-  .intake-heading {
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .intake-heading-icon {
-    width: 45px;
-    height: 45px;
-  }
-
-  .intake-heading h1 {
-    font-size: 27px;
-  }
-
-  .intake-heading p {
-    font-size: 11px;
-  }
-
-  .intake-header-tag {
-    min-height: 36px;
-  }
-
-  .intake-card {
-    padding: 21px 18px;
-    border-radius: 16px;
-  }
-
-  .intake-section-heading {
-    gap: 11px;
-    margin-bottom: 21px;
-  }
-
-  .intake-section-icon {
-    width: 39px;
-    height: 39px;
-  }
-
-  .intake-section-heading h2 {
-    font-size: 15px;
-  }
-
-  .intake-section-heading p {
-    font-size: 10px;
-  }
-
-  .intake-step {
-    padding: 7px 8px;
-    font-size: 8px;
-  }
-
-  .intake-code-row {
-    flex-direction: column;
-  }
-
-  .intake-check-btn {
-    width: 100%;
-  }
-
-  .intake-form-grid-three {
-    grid-template-columns: 1fr;
-    gap: 16px;
-    margin-top: 21px;
-  }
-
-  .intake-product-preview {
-    padding: 16px;
-  }
-
-  .intake-product-preview-top {
-    flex-wrap: wrap;
-  }
-
-  .intake-product-code {
-    margin-left: 58px;
-  }
-
-  .intake-product-preview-meta {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .intake-form-actions {
-    flex-direction: column-reverse;
-    align-items: stretch;
-  }
-
-  .intake-form-actions .intake-btn {
-    width: 100%;
-  }
-
-  .intake-list-heading {
-    flex-wrap: wrap;
-  }
-
-  .intake-count {
-    margin-left: 50px;
-  }
-
-  .intake-summary-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .intake-summary {
-    padding: 16px;
-  }
-
-  .intake-save-area {
-    gap: 15px;
-  }
-
-  .intake-save-btn {
-    width: 100%;
-  }
-
-  .intake-footer {
-    flex-wrap: wrap;
-    font-size: 9px;
-  }
-}
-
-/* SMALL MOBILE */
-@media (max-width: 380px) {
-  .intake-page {
-    padding-right: 11px;
-    padding-left: 11px;
-  }
-
-  .intake-header {
-    padding: 20px 17px;
-  }
-
-  .intake-heading-icon {
-    width: 41px;
-    height: 41px;
-  }
-
-  .intake-heading h1 {
-    font-size: 24px;
-  }
-
-  .intake-card {
-    padding: 18px 15px;
-  }
-
-  .intake-section-heading {
-    gap: 9px;
-  }
-
-  .intake-step {
-    display: none;
-  }
-
-  .intake-count {
-    margin-left: 48px;
-  }
-
-  .intake-summary strong {
-    font-size: 17px;
-  }
-}
-    `}</style>
-
-    <div className="intake-container">
-        
-
-        <header className="intake-header">
-          <div className="intake-heading">
-            <div className="intake-heading-icon">
-              <Package size={27} strokeWidth={1.7} />
+    <main className="intake-page">
+      <style jsx>{`
+        .intake-page {
+          --green: #174b36;
+          --green-dark: #103a2a;
+          --green-soft: #edf4ef;
+          --gold: #b99a62;
+          --ink: #26352c;
+          --muted: #849087;
+          --line: #e8ece6;
+          width: 100%;
+          min-height: 100vh;
+          padding: 26px 28px 34px;
+          box-sizing: border-box;
+          background: #f8f8f4;
+          color: var(--ink);
+          font-family: var(--font-dm-sans), sans-serif;
+        }
+
+        .container {
+          display: grid;
+          gap: 20px;
+          width: 100%;
+          max-width: 1200px;
+          margin: 0 auto;
+        }
+
+        .header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          min-height: 135px;
+          padding: 27px 30px;
+          border: 1px solid #e5e9e1;
+          border-radius: 20px;
+          background:
+            radial-gradient(circle at 92% 10%, rgba(185,154,98,.13), transparent 28%),
+            linear-gradient(115deg, #fff, #f5f8f3);
+        }
+
+        .heading {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          min-width: 0;
+        }
+
+        .heading-icon,
+        .section-icon {
+          display: grid;
+          flex-shrink: 0;
+          place-items: center;
+          border: 1px solid #dce8de;
+          border-radius: 14px;
+          background: var(--green-soft);
+          color: var(--green);
+        }
+
+        .heading-icon {
+          width: 54px;
+          height: 54px;
+        }
+
+        .eyebrow {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          margin-bottom: 7px;
+          color: var(--gold);
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 2px;
+        }
+
+        h1 {
+          margin: 0;
+          color: var(--green-dark);
+          font-family: var(--font-manrope), sans-serif;
+          font-size: 32px;
+          font-weight: 800;
+          letter-spacing: -1px;
+        }
+
+        .header p,
+        .section-heading p {
+          margin: 7px 0 0;
+          color: var(--muted);
+          font-size: 11px;
+          line-height: 1.8;
+        }
+
+        .header-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 11px 14px;
+          border: 1px solid #dce8de;
+          border-radius: 10px;
+          background: white;
+          color: var(--green);
+          font-size: 10px;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .alert {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 14px 16px;
+          border-radius: 11px;
+          font-size: 11px;
+          line-height: 1.7;
+        }
+
+        .alert strong {
+          display: block;
+          margin-bottom: 3px;
+        }
+
+        .alert p {
+          margin: 0;
+          overflow-wrap: anywhere;
+        }
+
+        .alert-error {
+          border: 1px solid #f0d9d5;
+          background: #fff5f3;
+          color: #a64d45;
+        }
+
+        .alert-success {
+          border: 1px solid #dcebdd;
+          background: #f0f7ef;
+          color: #3c7046;
+        }
+
+        .alert-close {
+          display: grid;
+          flex-shrink: 0;
+          place-items: center;
+          width: 28px;
+          height: 28px;
+          border: 0;
+          border-radius: 7px;
+          background: transparent;
+          color: inherit;
+          cursor: pointer;
+        }
+
+        .card {
+          min-width: 0;
+          padding: 26px 28px;
+          border: 1px solid var(--line);
+          border-radius: 17px;
+          background: white;
+          box-shadow: 0 5px 20px rgba(24,55,37,.035);
+        }
+
+        .section-heading {
+          display: flex;
+          align-items: flex-start;
+          gap: 13px;
+          margin-bottom: 23px;
+        }
+
+        .section-icon {
+          width: 43px;
+          height: 43px;
+          border-radius: 12px;
+        }
+
+        .section-heading > div:nth-child(2) {
+          flex: 1;
+          min-width: 0;
+        }
+
+        h2 {
+          margin: 1px 0 0;
+          color: var(--green-dark);
+          font-family: var(--font-manrope), sans-serif;
+          font-size: 17px;
+          font-weight: 800;
+        }
+
+        .step {
+          padding: 7px 10px;
+          border: 1px solid #e8dfca;
+          border-radius: 8px;
+          background: #fbf8f0;
+          color: #927545;
+          font-size: 9px;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .mode-tabs {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          margin-bottom: 23px;
+        }
+
+        .mode-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 9px;
+          min-height: 48px;
+          padding: 10px;
+          border: 1px solid #e2e8e1;
+          border-radius: 11px;
+          background: #fff;
+          color: #718075;
+          font-family: inherit;
+          font-size: 11px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .mode-button.active {
+          border-color: #b9cdbd;
+          background: #edf4ef;
+          color: var(--green);
+        }
+
+        .field-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 16px;
+          margin-top: 19px;
+        }
+
+        .field {
+          min-width: 0;
+        }
+
+        .field.full {
+          grid-column: 1 / -1;
+        }
+
+        label {
+          display: block;
+          margin-bottom: 8px;
+          color: #526157;
+          font-size: 10px;
+          font-weight: 800;
+        }
+
+        .input-wrap {
+          position: relative;
+          display: flex;
+          align-items: center;
+          min-width: 0;
+        }
+
+        .input-icon {
+          position: absolute;
+          left: 13px;
+          display: flex;
+          color: #8a988d;
+          pointer-events: none;
+        }
+
+        .input,
+        .select,
+        .textarea {
+          display: block;
+          width: 100%;
+          min-width: 0;
+          min-height: 45px;
+          box-sizing: border-box;
+          padding: 0 13px;
+          border: 1px solid #e2e8e1;
+          border-radius: 9px;
+          outline: none;
+          background: #fff;
+          color: #304136;
+          font-family: inherit;
+          font-size: 11px;
+        }
+
+        .input.with-icon {
+          padding-left: 41px;
+        }
+
+        .input:focus,
+        .select:focus,
+        .textarea:focus {
+          border-color: #789b83;
+          box-shadow: 0 0 0 3px rgba(45,105,68,.08);
+        }
+
+        .textarea {
+          min-height: 76px;
+          padding: 11px 13px;
+          resize: vertical;
+        }
+
+        .hint {
+          margin: 8px 0 0;
+          color: #9aa39b;
+          font-size: 10px;
+          line-height: 1.7;
+        }
+
+        .code-row {
+          display: flex;
+          gap: 10px;
+        }
+
+        .code-row .input-wrap {
+          flex: 1;
+        }
+
+        .button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          min-height: 43px;
+          padding: 0 16px;
+          border: 0;
+          border-radius: 9px;
+          font-family: inherit;
+          font-size: 10px;
+          font-weight: 800;
+          cursor: pointer;
+          transition: .18s ease;
+          white-space: nowrap;
+        }
+
+        .button-primary {
+          background: linear-gradient(135deg, #205a3e, #123d2b);
+          color: #fff;
+        }
+
+        .button-primary:hover:not(:disabled) {
+          background: #0e3525;
+          transform: translateY(-1px);
+        }
+
+        .button-secondary {
+          border: 1px solid #dce7dd;
+          background: #f0f5f0;
+          color: var(--green);
+        }
+
+        .button:disabled {
+          opacity: .48;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .product-preview {
+          display: flex;
+          align-items: center;
+          gap: 13px;
+          margin-top: 17px;
+          padding: 17px;
+          border: 1px solid #dcebdd;
+          border-radius: 12px;
+          background: #f7faf6;
+        }
+
+        .product-preview-icon {
+          display: grid;
+          flex-shrink: 0;
+          place-items: center;
+          width: 43px;
+          height: 43px;
+          border-radius: 11px;
+          background: #edf6ed;
+          color: #477b51;
+        }
+
+        .product-preview-info {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .found {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          color: #3e754b;
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .product-preview h3 {
+          margin: 4px 0 0;
+          color: var(--green-dark);
+          font-size: 14px;
+        }
+
+        .product-preview p {
+          margin: 3px 0 0;
+          color: #89938a;
+          font-size: 10px;
+        }
+
+        .product-code {
+          padding: 7px 9px;
+          border: 1px solid #e3e9df;
+          border-radius: 7px;
+          background: white;
+          color: #718075;
+          font-size: 10px;
+          font-weight: 800;
+        }
+
+        .payment-box {
+          margin-top: 22px;
+          padding: 19px;
+          border: 1px solid #e6ebe3;
+          border-radius: 12px;
+          background: #fafcf9;
+        }
+
+        .payment-heading {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          margin-bottom: 15px;
+          color: var(--green);
+          font-size: 12px;
+          font-weight: 800;
+        }
+
+        .payment-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 13px;
+        }
+
+        .calculation {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: space-between;
+          gap: 10px;
+          margin-top: 16px;
+          padding-top: 13px;
+          border-top: 1px solid #e7ece5;
+          color: #6d7d70;
+          font-size: 10px;
+        }
+
+        .calculation strong {
+          color: var(--green);
+        }
+
+        .form-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-top: 22px;
+          padding-top: 18px;
+          border-top: 1px solid #edf0eb;
+        }
+
+        .empty {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 42px 20px;
+          border: 1px dashed #dce5dc;
+          border-radius: 12px;
+          background: #fafbf9;
+          text-align: center;
+        }
+
+        .empty-icon {
+          display: grid;
+          place-items: center;
+          width: 55px;
+          height: 55px;
+          margin-bottom: 13px;
+          border-radius: 15px;
+          background: #edf4ef;
+          color: #64836c;
+        }
+
+        .empty h3 {
+          margin: 0 0 7px;
+          color: #42594a;
+          font-size: 13px;
+        }
+
+        .empty p {
+          max-width: 350px;
+          margin: 0;
+          color: #8a958b;
+          font-size: 10px;
+          line-height: 1.8;
+        }
+
+        .table-wrap {
+          width: 100%;
+          overflow-x: auto;
+          border: 1px solid #e8ece6;
+          border-radius: 11px;
+        }
+
+        table {
+          width: 100%;
+          min-width: 1050px;
+          border-collapse: collapse;
+          background: white;
+          text-align: left;
+        }
+
+        th {
+          padding: 13px 11px;
+          border-bottom: 1px solid #e5ebe3;
+          background: #f2f6f1;
+          color: #607365;
+          font-size: 9px;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        td {
+          padding: 13px 11px;
+          border-bottom: 1px solid #edf0eb;
+          color: #68776b;
+          font-size: 10px;
+          white-space: nowrap;
+        }
+
+        tbody tr:last-child td {
+          border-bottom: 0;
+        }
+
+        .strong {
+          color: #304136;
+          font-weight: 800;
+        }
+
+        .money {
+          color: var(--green);
+          font-weight: 800;
+        }
+
+        .tag {
+          display: inline-flex;
+          padding: 5px 8px;
+          border: 1px solid #e3e9df;
+          border-radius: 6px;
+          background: #f4f7f2;
+          color: var(--green);
+          font-size: 9px;
+          font-weight: 800;
+        }
+
+        .tag-loose {
+          border-color: #e8dfca;
+          background: #fbf8f0;
+          color: #927545;
+        }
+
+        .tag-paid {
+          color: #347548;
+          background: #edf7ee;
+          border-color: #dcebdd;
+        }
+
+        .tag-partial {
+          color: #98713a;
+          background: #fbf7ed;
+          border-color: #eee2c5;
+        }
+
+        .tag-unpaid {
+          color: #a64d45;
+          background: #fff5f3;
+          border-color: #f0d9d5;
+        }
+
+        .row-actions {
+          display: flex;
+          gap: 6px;
+        }
+
+        .icon-button {
+          display: grid;
+          place-items: center;
+          width: 30px;
+          height: 30px;
+          border-radius: 7px;
+          cursor: pointer;
+        }
+
+        .edit {
+          border: 1px solid #e8dfca;
+          background: #fbf8f0;
+          color: #9a8150;
+        }
+
+        .delete {
+          border: 1px solid #f0deda;
+          background: #fff5f3;
+          color: #ae5148;
+        }
+
+        .summary-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 12px;
+          margin-top: 17px;
+        }
+
+        .summary {
+          padding: 16px;
+          border: 1px solid #e5ebe3;
+          border-radius: 11px;
+          background: #fafcf9;
+        }
+
+        .summary span {
+          display: block;
+          color: #849087;
+          font-size: 10px;
+        }
+
+        .summary strong {
+          display: block;
+          margin-top: 8px;
+          color: var(--green-dark);
+          font-size: 17px;
+          overflow-wrap: anywhere;
+        }
+
+        .summary.outstanding {
+          border-color: #e8dfca;
+          background: #fbf9f3;
+        }
+
+        .summary.outstanding strong {
+          color: #927545;
+        }
+
+        .save-area {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          margin-top: 20px;
+          padding-top: 18px;
+          border-top: 1px solid #edf0eb;
+        }
+
+        .save-info {
+          max-width: 650px;
+          color: #8a958b;
+          font-size: 10px;
+          line-height: 1.8;
+        }
+
+        .history-subtext {
+          margin-top: 4px;
+          color: #89938a;
+          font-size: 9px;
+        }
+
+        .history-empty {
+          padding: 35px 15px;
+          border: 1px dashed #dce5dc;
+          border-radius: 12px;
+          color: #849087;
+          background: #fafbf9;
+          font-size: 11px;
+          text-align: center;
+        }
+
+        .history-footer {
+          margin-top: 14px;
+          color: #89938a;
+          font-size: 10px;
+        }
+
+        .history-title {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .history-title-left {
+          display: flex;
+          align-items: flex-start;
+          gap: 13px;
+          min-width: 0;
+        }
+
+        .history-title-left > div:last-child {
+          min-width: 0;
+        }
+
+        .loading {
+          display: flex;
+          min-height: 65vh;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 13px;
+          background: #f8f8f4;
+          color: var(--green);
+          font-size: 12px;
+        }
+
+        .loading p {
+          margin: 0;
+          color: #849087;
+        }
+
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 900px) {
+          .field-grid,
+          .payment-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .summary-grid {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+
+        @media (max-width: 600px) {
+          .intake-page {
+            padding: 18px 14px 25px;
+          }
+
+          .header {
+            align-items: flex-start;
+            flex-direction: column;
+            padding: 22px 19px;
+          }
+
+          .heading {
+            align-items: flex-start;
+            gap: 12px;
+          }
+
+          .heading-icon {
+            width: 45px;
+            height: 45px;
+          }
+
+          h1 {
+            font-size: 26px;
+          }
+
+          .card {
+            padding: 20px 17px;
+          }
+
+          .section-heading {
+            gap: 10px;
+          }
+
+          .step {
+            display: none;
+          }
+
+          .mode-button {
+            font-size: 10px;
+          }
+
+          .field-grid,
+          .payment-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .code-row {
+            flex-direction: column;
+          }
+
+          .code-row .button {
+            width: 100%;
+          }
+
+          .product-preview {
+            flex-wrap: wrap;
+          }
+
+          .product-code {
+            margin-left: 56px;
+          }
+
+          .form-actions {
+            flex-direction: column-reverse;
+          }
+
+          .form-actions .button {
+            width: 100%;
+          }
+
+          .summary-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .save-area {
+            align-items: stretch;
+            flex-direction: column;
+          }
+
+          .save-area .button {
+            width: 100%;
+          }
+
+          .history-title {
+            align-items: flex-start;
+          }
+        }
+      `}</style>
+
+      <div className="container">
+        {/* HEADER */}
+        <header className="header">
+          <div className="heading">
+            <div className="heading-icon">
+              <Package size={26} />
             </div>
 
             <div>
-              <div className="intake-eyebrow">
+              <div className="eyebrow">
                 <Sparkles size={12} />
                 TOKO ROSYIDAH · SEBAUNG
               </div>
 
               <h1>Input Kulakan</h1>
+
               <p>
-                Catat barang masuk dengan cepat menggunakan kode barang.
+                Catat barang berkode maupun barang curah dan pembayarannya.
               </p>
             </div>
           </div>
 
-          <div className="intake-header-tag">
+          <div className="header-tag">
             <ShoppingBag size={15} />
             Pengadaan Barang
           </div>
         </header>
 
+        {/* ALERT */}
         {(error || message) && (
-          <div
-            role={error ? "alert" : "status"}
-            className={`intake-alert ${
-              error ? "intake-alert-error" : "intake-alert-success"
-            }`}
-          >
-            {error ? (
-              <AlertCircle size={19} />
-            ) : (
-              <CheckCircle2 size={19} />
-            )}
+          <div className={`alert ${error ? "alert-error" : "alert-success"}`}>
+            {error ? <AlertCircle size={19} /> : <CheckCircle2 size={19} />}
 
-            <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <strong>{error ? "Perlu diperiksa" : "Berhasil"}</strong>
               <p>{error || message}</p>
             </div>
 
             <button
               type="button"
-              className="intake-alert-close"
+              className="alert-close"
               onClick={() => {
                 setError("");
                 setMessage("");
               }}
               aria-label="Tutup notifikasi"
             >
-              <X size={16} />
+              <X size={15} />
             </button>
           </div>
         )}
 
-        <section className="intake-card">
-          <div className="intake-section-heading">
-            <div className="intake-section-icon">
+        {/* FORM KULAKAN */}
+        <section className="card">
+          <div className="section-heading">
+            <div className="section-icon">
               <ClipboardList size={20} />
             </div>
 
             <div>
               <h2>Informasi Kulakan</h2>
-              <p>
-                Masukkan kode barang untuk mengambil data produk secara otomatis.
-              </p>
+              <p>Pilih jenis barang yang ingin dicatat.</p>
             </div>
 
-            <span className="intake-step">01 / INPUT</span>
+            <span className="step">01 / INPUT</span>
+          </div>
+
+          <div className="mode-tabs">
+            <button
+              type="button"
+              className={`mode-button ${item.mode === "coded" ? "active" : ""}`}
+              onClick={() => changeMode("coded")}
+            >
+              <Hash size={17} />
+              Barang Berkode
+            </button>
+
+            <button
+              type="button"
+              className={`mode-button ${item.mode === "loose" ? "active" : ""}`}
+              onClick={() => changeMode("loose")}
+            >
+              <Scale size={17} />
+              Barang Curah / Tanpa Kode
+            </button>
           </div>
 
           <form onSubmit={addItem}>
-            <div className="intake-field">
-              <label htmlFor="productCode" className="intake-label">
-                Kode Barang
-              </label>
+            {item.mode === "coded" ? (
+              <>
+                <div className="field">
+                  <label>Kode Barang</label>
 
-              <div className="intake-code-row">
-                <div className="intake-input-wrap intake-code-input-wrap">
-                  <span className="intake-input-icon">
-                    <Hash size={17} />
-                  </span>
+                  <div className="code-row">
+                    <div className="input-wrap">
+                      <span className="input-icon">
+                        <Hash size={16} />
+                      </span>
+
+                      <input
+                        className="input with-icon"
+                        type="text"
+                        value={item.productCode}
+                        onChange={(e) => update("productCode", e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void checkProduct();
+                          }
+                        }}
+                        placeholder="Masukkan atau scan barcode"
+                        autoComplete="off"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      className="button button-primary"
+                      onClick={() => void checkProduct()}
+                      disabled={checking || !item.productCode.trim()}
+                    >
+                      {checking ? (
+                        <LoaderCircle size={16} className="spin" />
+                      ) : (
+                        <Search size={16} />
+                      )}
+
+                      {checking ? "Mengecek..." : "Cek Barang"}
+                    </button>
+                  </div>
+
+                  <p className="hint">
+                    Barang harus sudah terdaftar di menu Barang & Stok.
+                  </p>
+                </div>
+
+                {selectedProduct &&
+                  checkedCode === item.productCode.trim() && (
+                    <div className="product-preview">
+                      <div className="product-preview-icon">
+                        <PackageCheck size={22} />
+                      </div>
+
+                      <div className="product-preview-info">
+                        <div className="found">
+                          <Check size={12} />
+                          Barang ditemukan
+                        </div>
+
+                        <h3>{selectedProduct.name}</h3>
+                        <p>{selectedProduct.brand || "Tanpa merek"}</p>
+                      </div>
+
+                      <span className="product-code">
+                        {selectedProduct.product_code}
+                      </span>
+                    </div>
+                  )}
+              </>
+            ) : (
+              <div className="field-grid">
+                <div className="field full">
+                  <label>Nama Barang Curah</label>
 
                   <input
-                    id="productCode"
-                    type="text"
-                    value={item.productCode}
-                    onChange={(e) => update("productCode", e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        void checkProduct();
-                      }
-                    }}
-                    placeholder="Masukkan atau scan kode barang"
-                    className="intake-input"
-                    autoComplete="off"
+                    className="input"
+                    value={item.name}
+                    onChange={(e) => update("name", e.target.value)}
+                    placeholder="Contoh: Beras, Telur, Gula"
+                    required
                   />
+
+                  <p className="hint">
+                    Barang curah hanya dicatat di riwayat kulakan dan tidak
+                    otomatis dibuat menjadi produk atau stok.
+                  </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={checkProduct}
-                  disabled={checking || !item.productCode.trim()}
-                  className="intake-btn intake-btn-primary intake-check-btn"
-                >
-                  {checking ? (
-                    <LoaderCircle size={17} className="intake-spin" />
-                  ) : (
-                    <Search size={17} />
-                  )}
-                  {checking ? "Mengecek..." : "Cek Barang"}
-                </button>
-              </div>
+                <div className="field">
+                  <label>Satuan Pembelian</label>
 
-              <p className="intake-field-hint">
-                Masukkan kode barang yang terdaftar di master produk, lalu tekan Cek Barang.
-              </p>
-            </div>
-
-            {selectedProduct && checkedCode === item.productCode.trim() && (
-              <div className="intake-product-preview">
-                <div className="intake-product-preview-top">
-                  <div className="intake-product-preview-icon">
-                    <PackageCheck size={23} />
-                  </div>
-
-                  <div className="intake-product-preview-title">
-                    <span className="intake-product-found">
-                      <Check size={13} />
-                      Barang ditemukan
-                    </span>
-                    <h3>{selectedProduct.name}</h3>
-                    <p>{selectedProduct.brand || "Tanpa merek"}</p>
-                  </div>
-
-                  <span className="intake-product-code">
-                    {selectedProduct.product_code}
-                  </span>
-                </div>
-
-                <div className="intake-product-preview-meta">
-                  <div>
-                    <Tag size={15} />
-                    <span>Data produk terdaftar</span>
-                  </div>
-                  <div>
-                    <Boxes size={15} />
-                    <span>Barang siap dicatat sebagai kulakan</span>
-                  </div>
+                  <input
+                    className="input"
+                    value={item.unit}
+                    onChange={(e) => update("unit", e.target.value)}
+                    placeholder="Contoh: kg, sak, karung"
+                    required
+                  />
                 </div>
               </div>
             )}
 
-            <div className="intake-form-grid intake-form-grid-three">
-              <div className="intake-field">
-                <label htmlFor="date" className="intake-label">
-                  Tanggal Kulakan
-                </label>
+            <div className="field-grid">
+              <div className="field">
+                <label>Tanggal Kulakan</label>
 
-                <div className="intake-input-wrap">
-                  <span className="intake-input-icon">
-                    <CalendarDays size={17} />
+                <div className="input-wrap">
+                  <span className="input-icon">
+                    <CalendarDays size={16} />
                   </span>
 
                   <input
-                    id="date"
+                    className="input with-icon"
                     type="date"
                     value={item.date}
                     onChange={(e) => update("date", e.target.value)}
                     required
-                    className="intake-input"
                   />
                 </div>
               </div>
 
-              <div className="intake-field">
-                <label htmlFor="quantity" className="intake-label">
-                  Jumlah Barang
-                </label>
+              <div className="field">
+                <label>Jumlah Pembelian</label>
 
-                <div className="intake-input-wrap">
-                  <span className="intake-input-icon">
-                    <Boxes size={17} />
+                <div className="input-wrap">
+                  <span className="input-icon">
+                    <Boxes size={16} />
                   </span>
 
                   <input
-                    id="quantity"
+                    className="input with-icon"
                     type="number"
-                    min="1"
-                    step="1"
+                    min="0.001"
+                    step={item.mode === "coded" ? "1" : "0.001"}
                     value={item.quantity}
                     onChange={(e) => update("quantity", e.target.value)}
-                    placeholder="Contoh: 12"
+                    placeholder={
+                      item.mode === "coded" ? "Contoh: 12" : "Contoh: 30"
+                    }
                     required
-                    className="intake-input"
                   />
                 </div>
               </div>
 
-              <div className="intake-field">
-                <label htmlFor="purchasePrice" className="intake-label">
-                  Harga Kulakan Satuan
+              <div className="field">
+                <label>
+                  Harga Kulakan per{" "}
+                  {item.mode === "coded"
+                    ? "unit"
+                    : item.unit || "satuan"}
                 </label>
 
-                <div className="intake-input-wrap">
-                  <span className="intake-input-icon">
-                    <Wallet size={17} />
+                <div className="input-wrap">
+                  <span className="input-icon">
+                    <Wallet size={16} />
                   </span>
 
                   <input
-                    id="purchasePrice"
+                    className="input with-icon"
                     type="number"
                     min="1"
                     step="1"
                     value={item.purchasePrice}
                     onChange={(e) => update("purchasePrice", e.target.value)}
-                    placeholder="Contoh: 5000"
+                    placeholder="Contoh: 12000"
                     required
-                    className="intake-input"
                   />
                 </div>
               </div>
-            </div>
 
-            <div className="intake-note">
-              <div className="intake-note-icon">
-                <Wallet size={17} />
+              <div className="field">
+                <label>Nama Pemasok (opsional)</label>
+
+                <input
+                  className="input"
+                  value={item.supplierName}
+                  onChange={(e) => update("supplierName", e.target.value)}
+                  placeholder="Nama pemasok"
+                />
               </div>
 
-              <div>
-                <strong>Perhatikan harga satuan</strong>
-                <p>
-                  Masukkan harga beli untuk satu unit barang, bukan total seluruh barang yang dibeli.
-                </p>
+              <div className="field full">
+                <label>Catatan (opsional)</label>
+
+                <textarea
+                  className="textarea"
+                  value={item.note}
+                  onChange={(e) => update("note", e.target.value)}
+                  placeholder="Catatan tambahan..."
+                />
               </div>
             </div>
 
-            <div className="intake-form-actions">
+            {/* PEMBAYARAN */}
+            <div className="payment-box">
+              <div className="payment-heading">
+                <CreditCard size={18} />
+                Pembayaran Kulakan
+              </div>
+
+              <div className="payment-grid">
+                <div className="field">
+                  <label>Jumlah yang Dibayar</label>
+
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={item.paidAmount}
+                    onChange={(e) => update("paidAmount", e.target.value)}
+                    placeholder="0"
+                  />
+
+                  <p className="hint">
+                    Isi 0 jika belum dibayar. Isi total jika langsung lunas.
+                  </p>
+                </div>
+
+                <div className="field">
+                  <label>Metode Pembayaran</label>
+
+                  <select
+                    className="select"
+                    value={item.paymentMethod}
+                    onChange={(e) =>
+                      update("paymentMethod", e.target.value)
+                    }
+                    disabled={currentPaid <= 0}
+                  >
+                    <option value="cash">Tunai dari laci kasir</option>
+                    <option value="transfer">Transfer</option>
+                    <option value="qris">QRIS</option>
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label>Tanggal Pembayaran</label>
+
+                  <input
+                    className="input"
+                    type="date"
+                    value={item.paymentDate}
+                    onChange={(e) => update("paymentDate", e.target.value)}
+                    disabled={currentPaid <= 0}
+                  />
+                </div>
+              </div>
+
+              <div className="calculation">
+                <span>
+                  Total kulakan: <strong>{rupiah(currentTotal)}</strong>
+                </span>
+
+                <span>
+                  Sisa pembayaran: <strong>{rupiah(currentRemaining)}</strong>
+                </span>
+
+                {currentTotal > 0 && (
+                  <span>
+                    Status:{" "}
+                    <strong>
+                      {currentPaid <= 0
+                        ? "Belum dibayar"
+                        : currentPaid >= currentTotal
+                        ? "Lunas"
+                        : "Dibayar sebagian"}
+                    </strong>
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="form-actions">
               {editingIndex !== null && (
                 <button
                   type="button"
+                  className="button button-secondary"
                   onClick={cancelEdit}
-                  className="intake-btn intake-btn-secondary"
                 >
-                  <X size={17} />
+                  <X size={16} />
                   Batal Edit
                 </button>
               )}
 
               <button
                 type="submit"
-                disabled={!selectedProduct || checkedCode !== item.productCode.trim()}
-                className="intake-btn intake-btn-primary"
+                className="button button-primary"
+                disabled={
+                  item.mode === "coded" &&
+                  (!selectedProduct ||
+                    checkedCode !== item.productCode.trim())
+                }
               >
                 {editingIndex !== null ? (
                   <>
-                    <Save size={17} />
+                    <Save size={16} />
                     Perbarui Barang
                   </>
                 ) : (
                   <>
-                    <Plus size={18} />
+                    <Plus size={17} />
                     Tambah ke Daftar
                   </>
                 )}
@@ -1801,106 +1918,126 @@ export default function KulakanPage() {
           </form>
         </section>
 
-        <section className="intake-card intake-list-card">
-          <div className="intake-section-heading intake-list-heading">
-            <div className="intake-section-icon">
-              <Receipt size={20} />
+        {/* DAFTAR SEMENTARA */}
+        <section className="card">
+          <div className="section-heading">
+            <div className="section-icon">
+              <ClipboardList size={20} />
             </div>
 
             <div>
-              <h2>Daftar Kulakan</h2>
-              <p>Periksa kembali barang sebelum disimpan.</p>
+              <h2>Daftar Kulakan Sementara</h2>
+              <p>Periksa barang dan pembayarannya sebelum disimpan.</p>
             </div>
 
-            <span className="intake-count">
-              <Package size={14} />
-              {items.length} barang
-            </span>
+            <span className="step">{items.length} BARIS</span>
           </div>
 
           {items.length === 0 ? (
-            <div className="intake-empty">
-              <div className="intake-empty-icon">
-                <PackageCheck size={31} strokeWidth={1.5} />
+            <div className="empty">
+              <div className="empty-icon">
+                <PackageCheck size={29} />
               </div>
 
-              <h3>Belum ada barang kulakan</h3>
+              <h3>Belum ada barang kulakan sementara</h3>
+
               <p>
-                Barang yang berhasil dicek dan ditambahkan akan muncul di sini.
+                Barang yang ditambahkan melalui formulir akan muncul di sini
+                sebelum disimpan.
               </p>
             </div>
           ) : (
             <>
-              <div className="intake-table-wrap">
-                <table className="intake-table">
+              <div className="table-wrap">
+                <table>
                   <thead>
                     <tr>
                       <th>Tanggal</th>
-                      <th>Kode Barang</th>
-                      <th>Nama Barang</th>
-                      <th>Merek</th>
+                      <th>Jenis</th>
+                      <th>Barang</th>
                       <th>Jumlah</th>
                       <th>Harga Satuan</th>
                       <th>Total</th>
+                      <th>Dibayar</th>
+                      <th>Sisa</th>
+                      <th>Status</th>
                       <th>Aksi</th>
                     </tr>
                   </thead>
 
                   <tbody>
                     {items.map((row, index) => (
-                      <tr
-                        key={`${row.productId}-${index}`}
-                        className={
-                          editingIndex === index ? "intake-row-editing" : ""
-                        }
-                      >
-                        <td className="intake-date-cell">
-                          {formatDate(row.date)}
-                        </td>
+                      <tr key={`${row.mode}-${index}`}>
+                        <td>{formatDate(row.date)}</td>
 
                         <td>
-                          <span className="intake-category">
-                            {row.productCode}
+                          <span
+                            className={`tag ${
+                              row.mode === "loose" ? "tag-loose" : ""
+                            }`}
+                          >
+                            {row.mode === "coded" ? "Berkode" : "Curah"}
                           </span>
                         </td>
 
-                        <td className="intake-product-name">{row.name}</td>
-                        <td>{row.brand || "—"}</td>
-
-                        <td className="intake-quantity">
-                          {Number(row.quantity).toLocaleString("id-ID")} pcs
-                        </td>
-
-                        <td className="intake-money">
-                          {rupiah(Number(row.purchasePrice))}
-                        </td>
-
-                        <td className="intake-total">
-                          {rupiah(
-                            Number(row.quantity) * Number(row.purchasePrice)
+                        <td>
+                          <span className="strong">{row.name}</span>
+                          {row.mode === "coded" && (
+                            <div className="history-subtext">
+                              {row.productCode}
+                            </div>
                           )}
                         </td>
 
                         <td>
-                          <div className="intake-row-actions">
+                          {Number(row.quantity).toLocaleString("id-ID")}{" "}
+                          {row.unit}
+                        </td>
+
+                        <td>{rupiah(Number(row.purchasePrice))}</td>
+
+                        <td className="money">
+                          {rupiah(lineTotal(row))}
+                        </td>
+
+                        <td>{rupiah(paidValue(row))}</td>
+
+                        <td>{rupiah(remainingValue(row))}</td>
+
+                        <td>
+                          <span
+                            className={`tag ${
+                              paidValue(row) <= 0
+                                ? "tag-unpaid"
+                                : paidValue(row) >= lineTotal(row)
+                                ? "tag-paid"
+                                : "tag-partial"
+                            }`}
+                          >
+                            {paymentLabel(row)}
+                          </span>
+                        </td>
+
+                        <td>
+                          <div className="row-actions">
                             <button
                               type="button"
-                              className="intake-icon-btn intake-edit-btn"
+                              className="icon-button edit"
                               onClick={() => editItem(index)}
                               disabled={saving}
-                              title="Edit barang"
+                              title="Edit"
                             >
-                              <Pencil size={15} />
+                              <Pencil size={14} />
                             </button>
 
                             <button
                               type="button"
-                              className="intake-icon-btn intake-delete-btn"
+                              className="icon-button delete"
                               onClick={() => removeItem(index)}
                               disabled={saving}
-                              title="Hapus barang"
+                              title="Hapus"
                             >
-                              <Trash2 size={15} />
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         </td>
@@ -1910,65 +2047,51 @@ export default function KulakanPage() {
                 </table>
               </div>
 
-              <div className="intake-summary-grid">
-                <div className="intake-summary">
-                  <div className="intake-summary-icon">
-                    <Boxes size={20} />
-                  </div>
-
-                  <div>
-                    <p>Total Jumlah Barang</p>
-                    <strong>
-                      {totalQuantity.toLocaleString("id-ID")}
-                      <small> unit</small>
-                    </strong>
-                  </div>
+              <div className="summary-grid">
+                <div className="summary">
+                  <span>Total Nilai Kulakan</span>
+                  <strong>{rupiah(totalValue)}</strong>
                 </div>
 
-                <div className="intake-summary intake-summary-value">
-                  <div className="intake-summary-icon">
-                    <Wallet size={20} />
-                  </div>
+                <div className="summary">
+                  <span>Total Sudah Dibayar</span>
+                  <strong>{rupiah(totalPaid)}</strong>
+                </div>
 
-                  <div>
-                    <p>Total Nilai Kulakan</p>
-                    <strong>{rupiah(totalValue)}</strong>
-                  </div>
+                <div className="summary outstanding">
+                  <span>Total Belum Dibayar</span>
+                  <strong>{rupiah(totalRemaining)}</strong>
                 </div>
               </div>
 
-              <div className="intake-save-area">
-                <div className="intake-save-info">
-                  <div className="intake-save-info-icon">
-                    <AlertCircle size={17} />
-                  </div>
-
-                  <p>
-                    Setelah disimpan, data kulakan menunggu persetujuan harga admin sebelum stok dapat digunakan untuk transaksi.
-                  </p>
+              <div className="save-area">
+                <div className="save-info">
+                  <strong>Perhatian:</strong> Barang berkode akan menunggu
+                  persetujuan harga admin. Barang curah hanya tersimpan sebagai
+                  catatan kulakan dan tidak menambah master produk atau stok.
+                  Pembayaran yang dicatat akan masuk ke rekap pembayaran
+                  kulakan sesuai metode dan tanggalnya.
                 </div>
 
                 <button
                   type="button"
-                  onClick={saveItems}
+                  className="button button-primary"
+                  onClick={() => void saveItems()}
                   disabled={
-                    items.length === 0 ||
                     saving ||
+                    items.length === 0 ||
                     editingIndex !== null
                   }
-                  className="intake-btn intake-btn-primary intake-save-btn"
                 >
                   {saving ? (
                     <>
-                      <LoaderCircle size={18} className="intake-spin" />
+                      <LoaderCircle size={17} className="spin" />
                       Menyimpan...
                     </>
-                  ) : editingIndex !== null ? (
-                    "Selesaikan Edit Dahulu"
                   ) : (
                     <>
-                      <Save size={18} />
-                      Simpan {items.length} Barang
+                      <Save size={17} />
+                      Simpan {items.length} Kulakan
                     </>
                   )}
                 </button>
@@ -1977,11 +2100,142 @@ export default function KulakanPage() {
           )}
         </section>
 
-        <footer className="intake-footer">
-          <span>TOKO ROSYIDAH</span>
-          <span className="intake-footer-dot">·</span>
-          Sistem Pengelolaan Kulakan & Persetujuan Harga
-        </footer>
+        {/* RIWAYAT KULAKAN TERSIMPAN */}
+        <section className="card">
+          <div className="section-heading">
+            <div className="section-icon">
+              <Receipt size={20} />
+            </div>
+
+            <div>
+              <h2>Riwayat Kulakan Tersimpan</h2>
+              <p>
+                Semua barang berkode dan curah yang sudah masuk ke database.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => void loadHistory()}
+              disabled={historyLoading}
+            >
+              {historyLoading ? (
+                <LoaderCircle size={15} className="spin" />
+              ) : (
+                <RefreshCw size={15} />
+              )}
+              Perbarui
+            </button>
+          </div>
+
+          {historyLoading && history.length === 0 ? (
+            <div className="history-empty">
+              <LoaderCircle size={20} className="spin" />
+              <p>Memuat riwayat kulakan...</p>
+            </div>
+          ) : history.length === 0 ? (
+            <div className="empty">
+              <div className="empty-icon">
+                <Package size={29} />
+              </div>
+
+              <h3>Belum ada riwayat kulakan</h3>
+
+              <p>
+                Kulakan yang berhasil disimpan akan muncul di sini secara
+                otomatis.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tanggal</th>
+                      <th>Jenis</th>
+                      <th>Nama Barang</th>
+                      <th>Jumlah</th>
+                      <th>Harga Satuan</th>
+                      <th>Total</th>
+                      <th>Dibayar</th>
+                      <th>Sisa</th>
+                      <th>Status Pembayaran</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {history.map((row) => (
+                      <tr key={`${row.mode}-${row.id}`}>
+                        <td>{formatDate(row.purchase_date)}</td>
+
+                        <td>
+                          <span
+                            className={`tag ${
+                              row.mode === "loose" ? "tag-loose" : ""
+                            }`}
+                          >
+                            {row.mode === "loose" ? "Curah" : "Berkode"}
+                          </span>
+                        </td>
+
+                        <td>
+                          <span className="strong">
+                            {row.product_name}
+                          </span>
+
+                          {row.mode === "coded" && row.product_code && (
+                            <div className="history-subtext">
+                              Kode: {row.product_code}
+                            </div>
+                          )}
+
+                          {row.brand && (
+                            <div className="history-subtext">
+                              {row.brand}
+                            </div>
+                          )}
+                        </td>
+
+                        <td>
+                          {Number(row.quantity).toLocaleString("id-ID")}{" "}
+                          {row.unit}
+                        </td>
+
+                        <td>{rupiah(Number(row.purchase_price))}</td>
+
+                        <td className="money">
+                          {rupiah(Number(row.total_amount))}
+                        </td>
+
+                        <td>{rupiah(Number(row.paid_amount))}</td>
+
+                        <td>
+                          {rupiah(Number(row.remaining_amount))}
+                        </td>
+
+                        <td>
+                          <span
+                            className={`tag ${getHistoryStatusClass(
+                              row.payment_status
+                            )}`}
+                          >
+                            {row.payment_status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="history-footer">
+                Menampilkan {history.length} data kulakan tersimpan.
+              </div>
+            </>
+          )}
+        </section>
       </div>
     </main>
   );

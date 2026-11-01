@@ -70,6 +70,12 @@ export default function CashDrawerPage() {
   const [cashSales, setCashSales] = useState(0);
   const [cashPurchases, setCashPurchases] = useState(0);
   const [cashExpenses, setCashExpenses] = useState(0);
+  const [expenseCategory, setExpenseCategory] = useState("Sosial / Amal");
+const [expenseDescription, setExpenseDescription] = useState("");
+const [expenseAmount, setExpenseAmount] = useState("");
+const [expensePaymentMethod, setExpensePaymentMethod] = useState<
+  "cash" | "transfer" | "qris"
+>("cash");
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -197,6 +203,82 @@ async function openSession() {
   }
 }
 
+async function addExpense() {
+  const amount = Number(expenseAmount);
+
+  setError("");
+  setMessage("");
+
+  if (!expenseDescription.trim()) {
+    setError("Masukkan keterangan pengeluaran.");
+    return;
+  }
+
+  if (
+    expenseAmount.trim() === "" ||
+    !Number.isFinite(amount) ||
+    amount <= 0
+  ) {
+    setError("Masukkan nominal pengeluaran yang valid.");
+    return;
+  }
+
+  if (!session || session.status !== "open") {
+    setError("Sesi kas harus terbuka untuk mencatat pengeluaran.");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Catat pengeluaran ${expenseDescription.trim()} sebesar ${rupiah(amount)}?`
+  );
+
+  if (!confirmed) return;
+
+  setBusy(true);
+
+  try {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError) throw authError;
+
+    if (!user) {
+      throw new Error("Silakan login terlebih dahulu.");
+    }
+
+    const { error: insertError } = await supabase
+      .from("financial_expenses")
+      .insert({
+        expense_date: today,
+        category: expenseCategory,
+        description: expenseDescription.trim(),
+        amount,
+        payment_method: expensePaymentMethod,
+        created_by: user.id,
+      });
+
+    if (insertError) throw insertError;
+
+    setExpenseDescription("");
+    setExpenseAmount("");
+    setExpenseCategory("Operasional");
+    setExpensePaymentMethod("cash");
+
+    setMessage("Pengeluaran berhasil dicatat.");
+
+    await loadData();
+  } catch (err) {
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Gagal menyimpan pengeluaran."
+    );
+  } finally {
+    setBusy(false);
+  }
+}
 
   async function closeSession() {
   if (!session || session.status !== "open") return;
@@ -408,6 +490,91 @@ async function openSession() {
               </strong>
             </div>
           </section>
+
+          {session.status === "open" && (
+  <section className="cash-panel expense-panel">
+    <div className="panel-icon">
+      <Wallet size={24} />
+    </div>
+
+    <h2>Catat Pengeluaran Lain</h2>
+
+    <p>
+      Catat pengeluaran toko selain pembayaran kulakan.
+      Pembayaran kulakan tetap dicatat melalui fitur kulakan.
+    </p>
+
+    <label>Kategori Pengeluaran</label>
+    <select
+      className="form-select"
+      value={expenseCategory}
+      onChange={(e) => setExpenseCategory(e.target.value)}
+    >
+      <option value="Operasional">Operasional</option>
+      <option value="Sosial / Amal">Sosial / Amal</option>
+      <option value="Transportasi">Transportasi</option>
+      <option value="Listrik dan Air">Listrik dan Air</option>
+      <option value="Lain-lain">Lain-lain</option>
+    </select>
+
+    <label>Keterangan</label>
+    <textarea
+      value={expenseDescription}
+      onChange={(e) => setExpenseDescription(e.target.value)}
+      placeholder="Contoh: Amal, listrik, transportasi..."
+      rows={2}
+    />
+
+    <label>Nominal Pengeluaran</label>
+    <div className="money-input">
+      <span>Rp</span>
+      <input
+        type="number"
+        min="1"
+        value={expenseAmount}
+        onChange={(e) => setExpenseAmount(e.target.value)}
+        placeholder="Masukkan nominal"
+      />
+    </div>
+
+    <label>Metode Pembayaran</label>
+    <select
+      className="form-select"
+      value={expensePaymentMethod}
+      onChange={(e) =>
+        setExpensePaymentMethod(
+          e.target.value as "cash" | "transfer" | "qris"
+        )
+      }
+    >
+      <option value="cash">Tunai dari laci kasir</option>
+      <option value="transfer">Transfer</option>
+      <option value="qris">QRIS</option>
+    </select>
+
+    <p className="expense-date-info">
+      Tanggal pencatatan:{" "}
+      {new Date(`${today}T12:00:00+07:00`).toLocaleDateString(
+        "id-ID",
+        {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+          timeZone: "Asia/Jakarta",
+        }
+      )}
+    </p>
+
+    <button
+      className="primary-button"
+      onClick={addExpense}
+      disabled={busy}
+    >
+      <Wallet size={17} />
+      {busy ? "Menyimpan..." : "Simpan Pengeluaran"}
+    </button>
+  </section>
+)}
 
           <section className="cash-panel expected-panel">
             <span>Saldo Kas yang Seharusnya</span>
@@ -647,6 +814,31 @@ async function openSession() {
           font: inherit;
           font-size: 12px;
         }
+
+        .form-select {
+  display: block;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 13px;
+  border: 1px solid #dfe8df;
+  border-radius: 10px;
+  outline: none;
+  background: #fafcf9;
+  color: #174b36;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.form-select:focus,
+textarea:focus {
+  border-color: #8ba995;
+}
+
+.expense-date-info {
+  margin-top: 15px;
+  font-size: 11px;
+  color: #849087;
+}
 
         .primary-button {
           display: inline-flex;
