@@ -20,6 +20,7 @@ import ProductManagement from "./barang-stock/page";
 import EmployeeAccountManagement from "./akun-pegawai/page";
 import AttendancePage from "./kehadiran/page";
 import EmployeePayrollManagement from "./gaji-pegawai/page";
+import CashDrawerPage from "./kas-harian/page";
 
 import {
   Bell,
@@ -69,7 +70,8 @@ type PageKey =
   | "pengaturan"
   | "kehadiran"
   | "piutang"
-  | "gaji";
+  | "gaji"
+  | "kas-harian";
 
 const menu: {
   key: PageKey;
@@ -87,6 +89,7 @@ const menu: {
   { key: "kehadiran", label: "Kehadiran", icon: CalendarCheck },
   { key: "piutang", label: "Piutang Pegawai", icon: HandCoins },
   { key: "gaji", label: "Gaji Mingguan", icon: Wallet },
+  { key: "kas-harian", label: "Buka & Tutup Kas", icon: Wallet },
 ];
 
 const rupiah = (n: number) =>
@@ -1004,6 +1007,8 @@ if (userRole === "employee") {
             <HargaPage />
           ) : active === "kasir" ? (
             <KasirPage />
+            ) : active === "kas-harian" ? (
+  <CashDrawerPage />
           ) : active === "penjualan" ? (
             <RiwayatPenjualanPage />
 ) : active === "akun-pegawai" ? (
