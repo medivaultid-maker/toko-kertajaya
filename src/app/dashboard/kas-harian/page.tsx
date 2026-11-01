@@ -132,14 +132,6 @@ async function openSession() {
   setError("");
   setMessage("");
 
-  // Masa transisi: sesi baru mulai digunakan 2 November.
-  if (today < "2026-11-02") {
-    setError(
-      "Fitur kas harian mulai diberlakukan pada 2 November 2026."
-    );
-    return;
-  }
-
   if (
     openingAmount.trim() === "" ||
     !Number.isFinite(amount) ||
@@ -163,6 +155,7 @@ async function openSession() {
     } = await supabase.auth.getUser();
 
     if (authError) throw authError;
+
     if (!user) {
       throw new Error("Silakan login terlebih dahulu.");
     }
