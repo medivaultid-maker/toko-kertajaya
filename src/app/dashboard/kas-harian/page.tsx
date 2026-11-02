@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -11,6 +10,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
+  TrendingUp,
+  ArrowDownCircle,
 } from "lucide-react";
 
 type CashSession = {
@@ -25,6 +26,8 @@ type CashSession = {
   closed_at: string | null;
   note: string | null;
 };
+
+type PaymentMethod = "cash" | "transfer" | "qris";
 
 const rupiah = (value: number) =>
   new Intl.NumberFormat("id-ID", {
@@ -48,34 +51,48 @@ function getTodayWIB() {
   return `${year}-${month}-${day}`;
 }
 
-function getDayRange(date: string) {
-  const start = new Date(`${date}T00:00:00+07:00`);
-
-  return {
-    start: start.toISOString(),
-    end: new Date(
-      start.getTime() + 24 * 60 * 60 * 1000
-    ).toISOString(),
-  };
+function formatDate(date: string) {
+  return new Date(`${date}T12:00:00+07:00`).toLocaleDateString(
+    "id-ID",
+    {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "Asia/Jakarta",
+    }
+  );
 }
 
 export default function CashDrawerPage() {
   const [supabase] = useState(() => createClient());
 
   const [session, setSession] = useState<CashSession | null>(null);
+
   const [openingAmount, setOpeningAmount] = useState("");
   const [closingAmount, setClosingAmount] = useState("");
   const [note, setNote] = useState("");
 
+  // Ringkasan kas
   const [cashSales, setCashSales] = useState(0);
   const [cashPurchases, setCashPurchases] = useState(0);
   const [cashExpenses, setCashExpenses] = useState(0);
-  const [expenseCategory, setExpenseCategory] = useState("Sosial / Amal");
-const [expenseDescription, setExpenseDescription] = useState("");
-const [expenseAmount, setExpenseAmount] = useState("");
-const [expensePaymentMethod, setExpensePaymentMethod] = useState<
-  "cash" | "transfer" | "qris"
->("cash");
+  const [cashOtherIncome, setCashOtherIncome] = useState(0);
+
+  // Form pengeluaran
+  const [expenseCategory, setExpenseCategory] =
+    useState("Sosial / Amal");
+  const [expenseDescription, setExpenseDescription] = useState("");
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expensePaymentMethod, setExpensePaymentMethod] =
+    useState<PaymentMethod>("cash");
+
+  // Form pemasukan lain
+  const [incomeCategory, setIncomeCategory] =
+    useState("Pemasukan Lain");
+  const [incomeDescription, setIncomeDescription] = useState("");
+  const [incomeAmount, setIncomeAmount] = useState("");
+  const [incomePaymentMethod, setIncomePaymentMethod] =
+    useState<PaymentMethod>("cash");
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -84,265 +101,394 @@ const [expensePaymentMethod, setExpensePaymentMethod] = useState<
 
   const today = getTodayWIB();
 
+  // Perhitungan saldo fisik yang seharusnya
   const expectedCash =
     Number(session?.opening_cash || 0) +
-    cashSales -
+    cashSales +
+    cashOtherIncome -
     cashPurchases -
     cashExpenses;
 
   const actualCash = Number(closingAmount || 0);
   const difference = actualCash - expectedCash;
 
- 
-const loadData = useCallback(async () => {
-  setLoading(true);
-  setError("");
+  // ============================================
+  // LOAD DATA KAS HARIAN
+  // ============================================
 
-  try {
-    const { data, error: rpcError } = await supabase.rpc(
-      "get_cash_drawer_summary"
-    );
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError("");
 
-    if (rpcError) throw rpcError;
+    try {
+      const { data, error: rpcError } = await supabase.rpc(
+        "get_cash_drawer_summary"
+      );
 
-    if (!data) {
-      throw new Error("Data rekap kas tidak ditemukan.");
+      if (rpcError) throw rpcError;
+
+      if (!data) {
+        throw new Error("Data rekap kas tidak ditemukan.");
+      }
+
+      const currentSession = data.session as CashSession | null;
+
+      setSession(currentSession);
+      setCashSales(Number(data.cash_sales || 0));
+      setCashPurchases(Number(data.cash_purchases || 0));
+      setCashExpenses(Number(data.cash_expenses || 0));
+      setCashOtherIncome(Number(data.cash_other_income || 0));
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal memuat data kas."
+      );
+    } finally {
+      setLoading(false);
     }
-
-    const currentSession = data.session as CashSession | null;
-
-    setSession(currentSession);
-    setCashSales(Number(data.cash_sales || 0));
-    setCashPurchases(Number(data.cash_purchases || 0));
-    setCashExpenses(Number(data.cash_expenses || 0));
-  } catch (err) {
-    setError(
-      err instanceof Error
-        ? err.message
-        : "Gagal memuat data kas."
-    );
-  } finally {
-    setLoading(false);
-  }
-}, [supabase]);
-
+  }, [supabase]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
-  
-async function openSession() {
-  const amount = Number(openingAmount);
+  // ============================================
+  // BUKA SESI KAS
+  // ============================================
 
-  setError("");
-  setMessage("");
+  async function openSession() {
+    const amount = Number(openingAmount);
 
-  if (
-    openingAmount.trim() === "" ||
-    !Number.isFinite(amount) ||
-    amount < 0
-  ) {
-    setError("Masukkan modal awal yang valid.");
-    return;
-  }
+    setError("");
+    setMessage("");
 
-  if (session?.status === "open") {
-    setError("Sesi kas hari ini sudah dibuka.");
-    return;
-  }
-
-  setBusy(true);
-
-  try {
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError) throw authError;
-
-    if (!user) {
-      throw new Error("Silakan login terlebih dahulu.");
+    if (
+      openingAmount.trim() === "" ||
+      !Number.isFinite(amount) ||
+      amount < 0
+    ) {
+      setError("Masukkan modal awal yang valid.");
+      return;
     }
 
-    const { error: insertError } = await supabase
-      .from("cash_drawer_sessions")
-      .insert({
-        session_date: today,
-        opening_cash: amount,
-        expected_closing_cash: amount,
-        status: "open",
-        opened_by: user.id,
-        note: note.trim() || null,
-      });
+    if (session?.status === "open") {
+      setError("Sesi kas hari ini sudah dibuka.");
+      return;
+    }
 
-    if (insertError) {
-      if (insertError.code === "23505") {
-        throw new Error(
-          "Sesi kas hari ini sudah pernah dibuat."
-        );
+    setBusy(true);
+
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+
+      if (!user) {
+        throw new Error("Silakan login terlebih dahulu.");
       }
 
-      throw insertError;
+      const { error: insertError } = await supabase
+        .from("cash_drawer_sessions")
+        .insert({
+          session_date: today,
+          opening_cash: amount,
+          expected_closing_cash: amount,
+          status: "open",
+          opened_by: user.id,
+          note: note.trim() || null,
+        });
+
+      if (insertError) {
+        if (insertError.code === "23505") {
+          throw new Error(
+            "Sesi kas hari ini sudah pernah dibuat."
+          );
+        }
+
+        throw insertError;
+      }
+
+      setOpeningAmount("");
+      setNote("");
+      setMessage("Sesi kas berhasil dibuka.");
+
+      await loadData();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal membuka sesi kas."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // ============================================
+  // TAMBAH PENGELUARAN
+  // ============================================
+
+  async function addExpense() {
+    const amount = Number(expenseAmount);
+
+    setError("");
+    setMessage("");
+
+    if (!expenseDescription.trim()) {
+      setError("Masukkan keterangan pengeluaran.");
+      return;
     }
 
-    setOpeningAmount("");
-    setNote("");
-    setMessage("Sesi kas berhasil dibuka.");
-
-    await loadData();
-  } catch (err) {
-    setError(
-      err instanceof Error
-        ? err.message
-        : "Gagal membuka sesi kas."
-    );
-  } finally {
-    setBusy(false);
-  }
-}
-
-async function addExpense() {
-  const amount = Number(expenseAmount);
-
-  setError("");
-  setMessage("");
-
-  if (!expenseDescription.trim()) {
-    setError("Masukkan keterangan pengeluaran.");
-    return;
-  }
-
-  if (
-    expenseAmount.trim() === "" ||
-    !Number.isFinite(amount) ||
-    amount <= 0
-  ) {
-    setError("Masukkan nominal pengeluaran yang valid.");
-    return;
-  }
-
-  if (!session || session.status !== "open") {
-    setError("Sesi kas harus terbuka untuk mencatat pengeluaran.");
-    return;
-  }
-
-  const confirmed = window.confirm(
-    `Catat pengeluaran ${expenseDescription.trim()} sebesar ${rupiah(amount)}?`
-  );
-
-  if (!confirmed) return;
-
-  setBusy(true);
-
-  try {
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError) throw authError;
-
-    if (!user) {
-      throw new Error("Silakan login terlebih dahulu.");
+    if (
+      expenseAmount.trim() === "" ||
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
+      setError("Masukkan nominal pengeluaran yang valid.");
+      return;
     }
 
-    const { error: insertError } = await supabase
-      .from("financial_expenses")
-      .insert({
-        expense_date: today,
-        category: expenseCategory,
-        description: expenseDescription.trim(),
-        amount,
-        payment_method: expensePaymentMethod,
-        created_by: user.id,
-      });
+    if (!session || session.status !== "open") {
+      setError(
+        "Sesi kas harus terbuka untuk mencatat pengeluaran."
+      );
+      return;
+    }
 
-    if (insertError) throw insertError;
-
-    setExpenseDescription("");
-    setExpenseAmount("");
-    setExpenseCategory("Operasional");
-    setExpensePaymentMethod("cash");
-
-    setMessage("Pengeluaran berhasil dicatat.");
-
-    await loadData();
-  } catch (err) {
-    setError(
-      err instanceof Error
-        ? err.message
-        : "Gagal menyimpan pengeluaran."
+    const confirmed = window.confirm(
+      `Catat pengeluaran ${expenseDescription.trim()} sebesar ${rupiah(amount)}?`
     );
-  } finally {
-    setBusy(false);
+
+    if (!confirmed) return;
+
+    setBusy(true);
+
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+
+      if (!user) {
+        throw new Error("Silakan login terlebih dahulu.");
+      }
+
+      const { error: insertError } = await supabase
+        .from("financial_expenses")
+        .insert({
+          expense_date: today,
+          category: expenseCategory,
+          description: expenseDescription.trim(),
+          amount,
+          payment_method: expensePaymentMethod,
+          created_by: user.id,
+        });
+
+      if (insertError) throw insertError;
+
+      setExpenseDescription("");
+      setExpenseAmount("");
+      setExpenseCategory("Sosial / Amal");
+      setExpensePaymentMethod("cash");
+
+      setMessage("Pengeluaran berhasil dicatat.");
+
+      await loadData();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal menyimpan pengeluaran."
+      );
+    } finally {
+      setBusy(false);
+    }
   }
-}
+
+  // ============================================
+  // TAMBAH PEMASUKAN LAIN
+  // ============================================
+
+  async function addIncome() {
+    const amount = Number(incomeAmount);
+
+    setError("");
+    setMessage("");
+
+    if (!incomeDescription.trim()) {
+      setError("Masukkan keterangan pemasukan.");
+      return;
+    }
+
+    if (
+      incomeAmount.trim() === "" ||
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
+      setError("Masukkan nominal pemasukan yang valid.");
+      return;
+    }
+
+    if (!session || session.status !== "open") {
+      setError(
+        "Sesi kas harus terbuka untuk mencatat pemasukan."
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Catat pemasukan ${incomeDescription.trim()} sebesar ${rupiah(amount)}?`
+    );
+
+    if (!confirmed) return;
+
+    setBusy(true);
+
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+
+      if (!user) {
+        throw new Error("Silakan login terlebih dahulu.");
+      }
+
+      const { error: insertError } = await supabase
+        .from("financial_incomes")
+        .insert({
+          income_date: today,
+          category: incomeCategory,
+          description: incomeDescription.trim(),
+          amount,
+          payment_method: incomePaymentMethod,
+          created_by: user.id,
+        });
+
+      if (insertError) throw insertError;
+
+      setIncomeDescription("");
+      setIncomeAmount("");
+      setIncomeCategory("Pemasukan Lain");
+      setIncomePaymentMethod("cash");
+
+      setMessage("Pemasukan lain berhasil dicatat.");
+
+      await loadData();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal menyimpan pemasukan."
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // ============================================
+  // TUTUP SESI KAS
+  // ============================================
 
   async function closeSession() {
-  if (!session || session.status !== "open") return;
+    if (!session || session.status !== "open") return;
 
-  const amount = Number(closingAmount);
+    const amount = Number(closingAmount);
 
-  setError("");
-  setMessage("");
+    setError("");
+    setMessage("");
 
-  if (
-    closingAmount.trim() === "" ||
-    !Number.isFinite(amount) ||
-    amount < 0
-  ) {
-    setError("Masukkan jumlah uang fisik saat tutup kas.");
-    return;
-  }
-
-  const confirmed = window.confirm(
-    "Yakin ingin menutup sesi kas hari ini? Transaksi kasir berikutnya akan ditolak."
-  );
-
-  if (!confirmed) return;
-
-  setBusy(true);
-
-  try {
-    const { data, error: rpcError } = await supabase.rpc(
-      "close_cash_drawer",
-      {
-        p_session_id: session.id,
-        p_closing_cash: amount,
-      }
-    );
-
-    if (rpcError) throw rpcError;
-
-    if (!data?.success) {
-      throw new Error("Penutupan kas tidak berhasil.");
+    if (
+      closingAmount.trim() === "" ||
+      !Number.isFinite(amount) ||
+      amount < 0
+    ) {
+      setError("Masukkan jumlah uang fisik saat tutup kas.");
+      return;
     }
 
-    setMessage("Sesi kas berhasil ditutup.");
-    setClosingAmount("");
-
-    await loadData();
-  } catch (err) {
-    setError(
-      err instanceof Error
-        ? err.message
-        : "Gagal menutup sesi kas."
+    const confirmed = window.confirm(
+      "Yakin ingin menutup sesi kas hari ini? Transaksi kasir berikutnya akan ditolak."
     );
-  } finally {
-    setBusy(false);
+
+    if (!confirmed) return;
+
+    setBusy(true);
+
+    try {
+      const { data, error: rpcError } = await supabase.rpc(
+        "close_cash_drawer",
+        {
+          p_session_id: session.id,
+          p_closing_cash: amount,
+        }
+      );
+
+      if (rpcError) throw rpcError;
+
+      if (!data?.success) {
+        throw new Error("Penutupan kas tidak berhasil.");
+      }
+
+      setMessage("Sesi kas berhasil ditutup.");
+      setClosingAmount("");
+
+      await loadData();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal menutup sesi kas."
+      );
+    } finally {
+      setBusy(false);
+    }
   }
-}
+
+  // ============================================
+  // LOADING
+  // ============================================
 
   if (loading) {
     return (
       <div className="cash-loading">
         <RefreshCw className="spin" size={24} />
         <p>Memuat data kas harian...</p>
+
+        <style jsx>{`
+          .cash-loading {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 40px;
+            color: #45614d;
+          }
+
+          .spin {
+            animation: spin 1s linear infinite;
+          }
+
+          @keyframes spin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
       </div>
     );
   }
+
+  // ============================================
+  // HALAMAN UTAMA
+  // ============================================
 
   return (
     <main className="cash-page">
@@ -358,15 +504,7 @@ async function addExpense() {
 
         <div className="date-chip">
           <Clock size={16} />
-          {new Date(`${today}T12:00:00+07:00`).toLocaleDateString(
-            "id-ID",
-            {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-              timeZone: "Asia/Jakarta",
-            }
-          )}
+          {formatDate(today)}
         </div>
       </section>
 
@@ -427,6 +565,8 @@ async function addExpense() {
         </section>
       ) : (
         <>
+          {/* STATUS SESI */}
+
           <section className="session-banner">
             <div className="session-status">
               {session.status === "open" ? (
@@ -434,12 +574,14 @@ async function addExpense() {
               ) : (
                 <Lock size={20} />
               )}
+
               <div>
                 <strong>
                   {session.status === "open"
                     ? "Sesi Kas Sedang Berjalan"
                     : "Sesi Kas Sudah Ditutup"}
                 </strong>
+
                 <span>
                   Dibuka pada{" "}
                   {new Date(session.opened_at).toLocaleTimeString(
@@ -465,6 +607,8 @@ async function addExpense() {
             </span>
           </section>
 
+          {/* RINGKASAN KAS */}
+
           <section className="summary-grid">
             <div className="summary-card">
               <span>Modal Awal</span>
@@ -474,6 +618,13 @@ async function addExpense() {
             <div className="summary-card">
               <span>Penjualan Tunai</span>
               <strong>{rupiah(cashSales)}</strong>
+            </div>
+
+            <div className="summary-card">
+              <span>Pemasukan Lain Tunai</span>
+              <strong className="positive">
+                + {rupiah(cashOtherIncome)}
+              </strong>
             </div>
 
             <div className="summary-card">
@@ -491,99 +642,232 @@ async function addExpense() {
             </div>
           </section>
 
+          {/* FORM PEMASUKAN DAN PENGELUARAN */}
+
           {session.status === "open" && (
-  <section className="cash-panel expense-panel">
-    <div className="panel-icon">
-      <Wallet size={24} />
-    </div>
+            <section className="cash-forms-grid">
+              {/* FORM PENGELUARAN */}
 
-    <h2>Catat Pengeluaran Lain</h2>
+              <div className="cash-panel expense-panel">
+                <div className="panel-icon expense-icon">
+                  <ArrowDownCircle size={24} />
+                </div>
 
-    <p>
-      Catat pengeluaran toko selain pembayaran kulakan.
-      Pembayaran kulakan tetap dicatat melalui fitur kulakan.
-    </p>
+                <h2>Catat Pengeluaran Lain</h2>
 
-    <label>Kategori Pengeluaran</label>
-    <select
-      className="form-select"
-      value={expenseCategory}
-      onChange={(e) => setExpenseCategory(e.target.value)}
-    >
-      <option value="Operasional">Operasional</option>
-      <option value="Sosial / Amal">Sosial / Amal</option>
-      <option value="Transportasi">Transportasi</option>
-      <option value="Listrik dan Air">Listrik dan Air</option>
-      <option value="Lain-lain">Lain-lain</option>
-    </select>
+                <p>
+                  Catat pengeluaran toko selain pembayaran
+                  kulakan. Pembayaran kulakan tetap dicatat
+                  melalui fitur kulakan.
+                </p>
 
-    <label>Keterangan</label>
-    <textarea
-      value={expenseDescription}
-      onChange={(e) => setExpenseDescription(e.target.value)}
-      placeholder="Contoh: Amal, listrik, transportasi..."
-      rows={2}
-    />
+                <label>Kategori Pengeluaran</label>
 
-    <label>Nominal Pengeluaran</label>
-    <div className="money-input">
-      <span>Rp</span>
-      <input
-        type="number"
-        min="1"
-        value={expenseAmount}
-        onChange={(e) => setExpenseAmount(e.target.value)}
-        placeholder="Masukkan nominal"
-      />
-    </div>
+                <select
+                  className="form-select"
+                  value={expenseCategory}
+                  onChange={(e) =>
+                    setExpenseCategory(e.target.value)
+                  }
+                >
+                  <option value="Operasional">Operasional</option>
+                  <option value="Sosial / Amal">
+                    Sosial / Amal
+                  </option>
+                  <option value="Transportasi">
+                    Transportasi
+                  </option>
+                  <option value="Listrik dan Air">
+                    Listrik dan Air
+                  </option>
+                  <option value="Lain-lain">Lain-lain</option>
+                </select>
 
-    <label>Metode Pembayaran</label>
-    <select
-      className="form-select"
-      value={expensePaymentMethod}
-      onChange={(e) =>
-        setExpensePaymentMethod(
-          e.target.value as "cash" | "transfer" | "qris"
-        )
-      }
-    >
-      <option value="cash">Tunai dari laci kasir</option>
-      <option value="transfer">Transfer</option>
-      <option value="qris">QRIS</option>
-    </select>
+                <label>Keterangan</label>
 
-    <p className="expense-date-info">
-      Tanggal pencatatan:{" "}
-      {new Date(`${today}T12:00:00+07:00`).toLocaleDateString(
-        "id-ID",
-        {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-          timeZone: "Asia/Jakarta",
-        }
-      )}
-    </p>
+                <textarea
+                  value={expenseDescription}
+                  onChange={(e) =>
+                    setExpenseDescription(e.target.value)
+                  }
+                  placeholder="Contoh: Amal, listrik, transportasi..."
+                  rows={2}
+                />
 
-    <button
-      className="primary-button"
-      onClick={addExpense}
-      disabled={busy}
-    >
-      <Wallet size={17} />
-      {busy ? "Menyimpan..." : "Simpan Pengeluaran"}
-    </button>
-  </section>
-)}
+                <label>Nominal Pengeluaran</label>
+
+                <div className="money-input">
+                  <span>Rp</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={expenseAmount}
+                    onChange={(e) =>
+                      setExpenseAmount(e.target.value)
+                    }
+                    placeholder="Masukkan nominal"
+                  />
+                </div>
+
+                <label>Metode Pembayaran</label>
+
+                <select
+                  className="form-select"
+                  value={expensePaymentMethod}
+                  onChange={(e) =>
+                    setExpensePaymentMethod(
+                      e.target.value as PaymentMethod
+                    )
+                  }
+                >
+                  <option value="cash">
+                    Tunai dari laci kasir
+                  </option>
+                  <option value="transfer">Transfer</option>
+                  <option value="qris">QRIS</option>
+                </select>
+
+                <p className="date-info">
+                  Tanggal pencatatan: {formatDate(today)}
+                </p>
+
+                <button
+                  className="primary-button expense-button"
+                  onClick={addExpense}
+                  disabled={busy}
+                >
+                  <Wallet size={17} />
+                  {busy
+                    ? "Menyimpan..."
+                    : "Simpan Pengeluaran"}
+                </button>
+              </div>
+
+              {/* FORM PEMASUKAN LAIN */}
+
+              <div className="cash-panel income-panel">
+                <div className="panel-icon income-icon">
+                  <TrendingUp size={24} />
+                </div>
+
+                <h2>Catat Pemasukan Lain</h2>
+
+                <p>
+                  Catat pemasukan di luar transaksi penjualan
+                  kasir, misalnya setoran tambahan atau
+                  pendapatan lainnya.
+                </p>
+
+                <label>Kategori Pemasukan</label>
+
+                <select
+                  className="form-select"
+                  value={incomeCategory}
+                  onChange={(e) =>
+                    setIncomeCategory(e.target.value)
+                  }
+                >
+                  <option value="Pemasukan Lain">
+                    Pemasukan Lain
+                  </option>
+                  <option value="Setoran Tambahan">
+                    Setoran Tambahan
+                  </option>
+                  <option value="Penjualan Non-Kasir">
+                    Penjualan Non-Kasir
+                  </option>
+                  <option value="Pengembalian Dana">
+                    Pengembalian Dana
+                  </option>
+                  <option value="Lain-lain">Lain-lain</option>
+                </select>
+
+                <label>Keterangan</label>
+
+                <textarea
+                  value={incomeDescription}
+                  onChange={(e) =>
+                    setIncomeDescription(e.target.value)
+                  }
+                  placeholder="Contoh: Setoran tambahan pemilik..."
+                  rows={2}
+                />
+
+                <label>Nominal Pemasukan</label>
+
+                <div className="money-input">
+                  <span>Rp</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={incomeAmount}
+                    onChange={(e) =>
+                      setIncomeAmount(e.target.value)
+                    }
+                    placeholder="Masukkan nominal"
+                  />
+                </div>
+
+                <label>Metode Penerimaan</label>
+
+                <select
+                  className="form-select"
+                  value={incomePaymentMethod}
+                  onChange={(e) =>
+                    setIncomePaymentMethod(
+                      e.target.value as PaymentMethod
+                    )
+                  }
+                >
+                  <option value="cash">
+                    Tunai masuk ke laci kasir
+                  </option>
+                  <option value="transfer">Transfer</option>
+                  <option value="qris">QRIS</option>
+                </select>
+
+                <div className="income-info">
+                  <strong>Perhatian:</strong>
+                  <span>
+                    Hanya pemasukan tunai yang menambah saldo
+                    fisik laci kasir. Transfer dan QRIS tetap
+                    tercatat, tetapi tidak menambah saldo laci.
+                  </span>
+                </div>
+
+                <p className="date-info">
+                  Tanggal pencatatan: {formatDate(today)}
+                </p>
+
+                <button
+                  className="primary-button income-button"
+                  onClick={addIncome}
+                  disabled={busy}
+                >
+                  <TrendingUp size={17} />
+                  {busy
+                    ? "Menyimpan..."
+                    : "Simpan Pemasukan"}
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* SALDO YANG SEHARUSNYA */}
 
           <section className="cash-panel expected-panel">
             <span>Saldo Kas yang Seharusnya</span>
+
             <strong>{rupiah(expectedCash)}</strong>
+
             <p>
-              Modal awal + penjualan tunai - pembayaran
-              kulakan tunai - pengeluaran tunai.
+              Modal awal + penjualan tunai + pemasukan lain
+              tunai - pembayaran kulakan tunai - pengeluaran
+              tunai.
             </p>
           </section>
+
+          {/* TUTUP KAS */}
 
           {session.status === "open" ? (
             <section className="cash-panel closing-panel">
@@ -592,19 +876,23 @@ async function addExpense() {
               </div>
 
               <h2>Tutup Sesi Kas</h2>
+
               <p>
                 Hitung seluruh uang fisik di laci kas, lalu
                 masukkan jumlah akhirnya.
               </p>
 
               <label>Jumlah Uang Fisik</label>
+
               <div className="money-input">
                 <span>Rp</span>
                 <input
                   type="number"
                   min="0"
                   value={closingAmount}
-                  onChange={(e) => setClosingAmount(e.target.value)}
+                  onChange={(e) =>
+                    setClosingAmount(e.target.value)
+                  }
                   placeholder="Masukkan hasil penghitungan"
                 />
               </div>
@@ -612,6 +900,7 @@ async function addExpense() {
               {closingAmount !== "" && (
                 <div className="difference-box">
                   <span>Selisih Kas</span>
+
                   <strong
                     className={
                       difference === 0
@@ -624,6 +913,7 @@ async function addExpense() {
                     {difference > 0 ? "+ " : ""}
                     {rupiah(difference)}
                   </strong>
+
                   <small>
                     {difference === 0
                       ? "Kas sesuai dengan perhitungan sistem."
@@ -637,7 +927,9 @@ async function addExpense() {
               <button
                 className="primary-button"
                 onClick={closeSession}
-                disabled={busy || closingAmount.trim() === ""}
+                disabled={
+                  busy || closingAmount.trim() === ""
+                }
               >
                 <Lock size={17} />
                 {busy ? "Menutup sesi..." : "Tutup Sesi Kas"}
@@ -646,6 +938,7 @@ async function addExpense() {
           ) : (
             <section className="cash-panel closed-panel">
               <CheckCircle2 size={28} />
+
               <h2>Rekap Penutupan Kas</h2>
 
               <div className="closed-row">
@@ -658,14 +951,18 @@ async function addExpense() {
               <div className="closed-row">
                 <span>Uang fisik</span>
                 <strong>
-                  {rupiah(Number(session.closing_cash_actual || 0))}
+                  {rupiah(
+                    Number(session.closing_cash_actual || 0)
+                  )}
                 </strong>
               </div>
 
               <div className="closed-row final-row">
                 <span>Selisih kas</span>
                 <strong>
-                  {rupiah(Number(session.cash_difference || 0))}
+                  {rupiah(
+                    Number(session.cash_difference || 0)
+                  )}
                 </strong>
               </div>
 
@@ -745,7 +1042,7 @@ async function addExpense() {
           border: 1px solid #e7ece5;
           border-radius: 17px;
           background: white;
-          box-shadow: 0 5px 20px rgba(24,55,37,.035);
+          box-shadow: 0 5px 20px rgba(24, 55, 37, 0.035);
         }
 
         .opening-panel,
@@ -762,6 +1059,16 @@ async function addExpense() {
           border-radius: 13px;
           background: #edf4ef;
           color: #174b36;
+        }
+
+        .income-icon {
+          background: #eaf5ed;
+          color: #28784a;
+        }
+
+        .expense-icon {
+          background: #f8eeee;
+          color: #a64d4d;
         }
 
         .cash-panel h2 {
@@ -813,32 +1120,51 @@ async function addExpense() {
           outline: 0;
           font: inherit;
           font-size: 12px;
+          resize: vertical;
         }
 
         .form-select {
-  display: block;
-  width: 100%;
-  min-height: 46px;
-  padding: 0 13px;
-  border: 1px solid #dfe8df;
-  border-radius: 10px;
-  outline: none;
-  background: #fafcf9;
-  color: #174b36;
-  font-family: inherit;
-  font-size: 12px;
-}
+          display: block;
+          width: 100%;
+          min-height: 46px;
+          padding: 0 13px;
+          border: 1px solid #dfe8df;
+          border-radius: 10px;
+          outline: none;
+          background: #fafcf9;
+          color: #174b36;
+          font-family: inherit;
+          font-size: 12px;
+        }
 
-.form-select:focus,
-textarea:focus {
-  border-color: #8ba995;
-}
+        .form-select:focus,
+        textarea:focus {
+          border-color: #8ba995;
+        }
 
-.expense-date-info {
-  margin-top: 15px;
-  font-size: 11px;
-  color: #849087;
-}
+        .date-info {
+          margin-top: 15px;
+          font-size: 11px;
+          color: #849087;
+        }
+
+        .income-info {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          margin-top: 17px;
+          padding: 12px 14px;
+          border: 1px solid #e1eee3;
+          border-radius: 10px;
+          background: #f5faf5;
+          color: #58715e;
+          font-size: 11px;
+          line-height: 1.7;
+        }
+
+        .income-info strong {
+          color: #28784a;
+        }
 
         .primary-button {
           display: inline-flex;
@@ -858,8 +1184,16 @@ textarea:focus {
         }
 
         .primary-button:disabled {
-          opacity: .5;
+          opacity: 0.5;
           cursor: not-allowed;
+        }
+
+        .income-button {
+          background: #28784a;
+        }
+
+        .expense-button {
+          background: #8f4949;
         }
 
         .session-banner {
@@ -911,7 +1245,7 @@ textarea:focus {
 
         .summary-grid {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(5, minmax(0, 1fr));
           gap: 13px;
         }
 
@@ -940,6 +1274,22 @@ textarea:focus {
 
         .negative {
           color: #b34e4e !important;
+        }
+
+        .positive {
+          color: #28784a !important;
+        }
+
+        .cash-forms-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 18px;
+          align-items: start;
+        }
+
+        .cash-forms-grid .cash-panel {
+          height: 100%;
+          box-sizing: border-box;
         }
 
         .expected-panel {
@@ -979,10 +1329,6 @@ textarea:focus {
 
         .difference-box strong {
           font-size: 21px;
-        }
-
-        .positive {
-          color: #28784a;
         }
 
         .neutral {
@@ -1061,12 +1407,24 @@ textarea:focus {
         }
 
         @keyframes spin {
-          to { transform: rotate(360deg); }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        @media (max-width: 1100px) {
+          .summary-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
         }
 
         @media (max-width: 850px) {
           .summary-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .cash-forms-grid {
+            grid-template-columns: 1fr;
           }
         }
 

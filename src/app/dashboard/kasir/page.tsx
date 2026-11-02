@@ -36,6 +36,7 @@ type CartItem = {
   quantity: number;
 };
 
+type DiscountType = "percent" | "amount";
 type ReceiptData = {
   receipt_number: string;
   subtotal: number;
@@ -43,6 +44,8 @@ type ReceiptData = {
   total: number;
   amount_paid: number;
   change_amount: number;
+  discount_type: DiscountType;
+discount_input: number;
   items: {
     name: string;
     brand: string;
@@ -68,6 +71,8 @@ export default function KasirPage() {
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [amountPaid, setAmountPaid] = useState("");
   const [discount, setDiscount] = useState("0");
+const [discountType, setDiscountType] =
+  useState<DiscountType>("percent");
 
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
@@ -88,23 +93,24 @@ export default function KasirPage() {
     [cart]
   );
 
-  // Diskon dalam persen.
-  const discountPercent = Math.min(
-    100,
-    Math.max(0, Number(discount) || 0)
-  );
-
   // Nominal diskon untuk perhitungan transaksi.
-  const discountAmount = Math.round(
-    subtotal * (discountPercent / 100)
-  );
+  // Nilai diskon sesuai pilihan pengguna.
+const discountValue = Number(discount);
+const safeDiscountValue = Number.isFinite(discountValue)
+  ? discountValue
+  : 0;
 
-  const total = Math.max(0, subtotal - discountAmount);
+// Hitung nominal diskon dalam Rupiah.
+const discountAmount =
+  discountType === "percent"
+    ? Math.round(subtotal * (safeDiscountValue / 100))
+    : Math.round(safeDiscountValue);
 
-  const change = Math.max(
-    0,
-    Number(amountPaid || 0) - total
-  );
+const total = Math.max(0, subtotal - discountAmount);
+const change = Math.max(
+  0,
+  Number(amountPaid || 0) - total
+);
 
   // Pembayaran non-tunai otomatis mengikuti total terbaru.
   useEffect(() => {
@@ -287,19 +293,25 @@ export default function KasirPage() {
     setError("");
     setMessage("");
 
-    const paid = Number(amountPaid);
-    const disc = Number(discount);
+   const paid = Number(amountPaid);
+const disc = Number(discount);
 
-    if (
-      !Number.isFinite(disc) ||
-      disc < 0 ||
-      disc > 100
-    ) {
-      setError(
-        "Diskon harus berada di antara 0 sampai 100%."
-      );
-      return;
-    }
+if (!Number.isFinite(disc) || disc < 0) {
+  setError("Nilai diskon tidak valid.");
+  return;
+}
+
+if (discountType === "percent" && disc > 100) {
+  setError("Diskon persentase maksimal 100%.");
+  return;
+}
+
+if (discountType === "amount" && disc > subtotal) {
+  setError(
+    "Diskon Rupiah tidak boleh melebihi subtotal belanja."
+  );
+  return;
+}
 
     if (!Number.isFinite(paid) || paid < 0) {
       setError("Jumlah pembayaran tidak valid.");
@@ -346,12 +358,18 @@ export default function KasirPage() {
         );
       }
 
-      setReceipt(data as ReceiptData);
-      setCart([]);
-      setAmountPaid("");
-      setDiscount("0");
-      setCode("");
-      setFoundProduct(null);
+      setReceipt({
+  ...(data as ReceiptData),
+  discount_type: discountType,
+  discount_input: disc,
+});
+
+setCart([]);
+setAmountPaid("");
+setDiscount("0");
+setDiscountType("percent");
+setCode("");
+setFoundProduct(null);
       setMessage("Transaksi berhasil diselesaikan.");
     } catch (err) {
       setError(
@@ -2923,41 +2941,63 @@ export default function KasirPage() {
             <strong>{rupiah(subtotal)}</strong>
           </div>
 
-          <div className="payment-field">
-            <label htmlFor="discount">
-              Diskon (%)
-            </label>
+         <div className="payment-field">
+  <label htmlFor="discount-type">
+    Jenis Diskon
+  </label>
 
-            <div className="simple-input">
-              <input
-                id="discount"
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={discount}
-                onChange={(e) => {
-                  const value = e.target.value;
+  <div className="simple-input">
+    <select
+      id="discount-type"
+      value={discountType}
+      onChange={(e) => {
+        setDiscountType(
+          e.target.value as DiscountType
+        );
+        setDiscount("0");
+      }}
+    >
+      <option value="percent">Persentase (%)</option>
+      <option value="amount">Nominal Rupiah (Rp)</option>
+    </select>
+  </div>
 
-                  if (
-                    value === "" ||
-                    (Number(value) >= 0 &&
-                      Number(value) <= 100)
-                  ) {
-                    setDiscount(value);
-                  }
-                }}
-                placeholder="0"
-              />
+  <label htmlFor="discount" style={{ marginTop: 15 }}>
+    {discountType === "percent"
+      ? "Besar Diskon (%)"
+      : "Nominal Diskon (Rp)"}
+  </label>
 
-              <span>%</span>
-            </div>
+  <div className="simple-input">
+    {discountType === "amount" && <span>Rp</span>}
 
-            <div className="summary-line">
-              <span>Potongan diskon</span>
-              <strong>{rupiah(discountAmount)}</strong>
-            </div>
-          </div>
+    <input
+      id="discount"
+      type="number"
+      min="0"
+      max={
+        discountType === "percent"
+          ? 100
+          : subtotal
+      }
+      step={
+        discountType === "percent"
+          ? "0.01"
+          : "1"
+      }
+      value={discount}
+      onChange={(e) => setDiscount(e.target.value)}
+      placeholder="0"
+    />
+
+    {discountType === "percent" && <span>%</span>}
+  </div>
+
+  <div className="summary-line">
+    <span>Potongan diskon</span>
+    <strong>{rupiah(discountAmount)}</strong>
+  </div>
+</div>
 
           <div className="payment-divider" />
 
@@ -3084,22 +3124,17 @@ export default function KasirPage() {
           </div>
 
           <div className="receipt-row">
-            <span>
-              Diskon (
-              {receipt.subtotal > 0
-                ? (
-                    (receipt.discount /
-                      receipt.subtotal) *
-                    100
-                  ).toLocaleString("id-ID", {
-                    maximumFractionDigits: 2,
-                  })
-                : 0}
-              %)
-            </span>
+  <span>
+    {receipt.discount_type === "percent"
+      ? `Diskon (${receipt.discount_input.toLocaleString(
+          "id-ID",
+          { maximumFractionDigits: 2 }
+        )}%)`
+      : "Diskon (Nominal)"}
+  </span>
 
-            <strong>{rupiah(receipt.discount)}</strong>
-          </div>
+  <strong>{rupiah(receipt.discount)}</strong>
+</div>
 
           <div className="receipt-row receipt-total">
             <span>Total</span>

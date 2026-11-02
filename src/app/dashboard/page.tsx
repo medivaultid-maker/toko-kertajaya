@@ -13,7 +13,7 @@ import KulakanPage from "./kulakan/page";
 import HargaPage from "./harga/page";
 import KasirPage from "./kasir/page";
 import RiwayatPenjualanPage from "./riwayat-penjualan/page";
-
+import LabaRugiPage from "./laporan-laba-rugi/page";
 import EmployeeDebtManagement from "./piutang-pegawai/page";
 import EmployeeManagement from "./data-pegawai/page";
 import ProductManagement from "./barang-stock/page";
@@ -84,6 +84,7 @@ const menu: {
   { key: "harga", label: "Persetujuan Harga", icon: Wallet },
   { key: "kasir", label: "Kasir", icon: ShoppingCart },
   { key: "penjualan", label: "Riwayat Penjualan", icon: ReceiptText },
+  { key: "laporan", label: "Laporan Laba Rugi", icon: ChartNoAxesCombined },
   { key: "data-pegawai", label: "Data Pegawai", icon: Users },
   { key: "akun-pegawai", label: "Akun Pegawai", icon: ShieldCheck },
   { key: "kehadiran", label: "Kehadiran", icon: CalendarCheck },
@@ -1010,7 +1011,9 @@ if (userRole === "employee") {
             ) : active === "kas-harian" ? (
   <CashDrawerPage />
           ) : active === "penjualan" ? (
-            <RiwayatPenjualanPage />
+  <RiwayatPenjualanPage />
+) : active === "laporan" ? (
+  <LabaRugiPage />
 ) : active === "akun-pegawai" ? (
   <EmployeeAccountManagement />
 ) : active === "data-pegawai" ? (
