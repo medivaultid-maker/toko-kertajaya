@@ -72,34 +72,55 @@ export default function ProductManagement() {
   // MEMUAT PRODUK
   // =====================================================
 
-  const loadProducts = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  
+const loadProducts = useCallback(async () => {
+  setLoading(true);
+  setError("");
 
-    try {
+  try {
+    const pageSize = 500;
+    let from = 0;
+    let allProducts: Product[] = [];
+
+    while (true) {
       const { data, error: loadError } = await supabase
         .from("products")
         .select(
           "id, product_code, name, brand, unit, stock_quantity, current_purchase_cost, current_selling_price, price_status, is_active"
         )
-        .order("name");
+        .order("name")
+        .order("id")
+        .range(from, from + pageSize - 1);
 
       if (loadError) {
         setError(`Gagal memuat barang: ${loadError.message}`);
         return;
       }
 
-      setProducts((data ?? []) as Product[]);
-    } catch (err) {
-      setError(
-        `Gagal memuat barang: ${
-          err instanceof Error ? err.message : "Terjadi kesalahan."
-        }`
-      );
-    } finally {
-      setLoading(false);
+      const batch = (data ?? []) as Product[];
+
+      allProducts = [...allProducts, ...batch];
+
+      if (batch.length < pageSize) {
+        break;
+      }
+
+      from += pageSize;
     }
-  }, [supabase]);
+
+    setProducts(allProducts);
+
+  } catch (err) {
+    setError(
+      `Gagal memuat barang: ${
+        err instanceof Error ? err.message : "Terjadi kesalahan."
+      }`
+    );
+  } finally {
+    setLoading(false);
+  }
+}, [supabase]);
+
 
   useEffect(() => {
     void loadProducts();
