@@ -647,8 +647,6 @@ if (userRole === "employee") {
           Sebaung
         </div>
 
-        <div className="menu-label">MENU UTAMA</div>
-
        <nav className="nav-list">
   {menuGroups.map((group) => (
     <div className="nav-group" key={group.title}>
@@ -682,18 +680,6 @@ if (userRole === "employee") {
   ))}
 </nav>
 
-        <div className="sidebar-bottom">
-          <div className="user-mini">
-            <div className="user-avatar">
-              {userName.charAt(0).toUpperCase()}
-            </div>
-
-            <div className="user-mini-info">
-              <strong>{userName}</strong>
-              <span>Administrator</span>
-            </div>
-          </div>
-        </div>
       </aside>
 
       {/* AREA UTAMA */}
