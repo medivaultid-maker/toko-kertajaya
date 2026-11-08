@@ -63,6 +63,15 @@ const rupiah = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+// Menghasilkan tanggal lokal YYYY-MM-DD tanpa bergantung pada UTC.
+const getLocalDateString = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export default function EmployeeDebtManagement() {
   const [supabase] = useState(() => createClient());
 
@@ -72,6 +81,7 @@ export default function EmployeeDebtManagement() {
   const [items, setItems] = useState<DebtItem[]>([]);
 
   // FORM
+  const [debtDate, setDebtDate] = useState(() => getLocalDateString());
   const [code, setCode] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -416,6 +426,16 @@ export default function EmployeeDebtManagement() {
     setError("");
     setMessage("");
 
+    if (!debtDate) {
+      setError("Pilih tanggal piutang terlebih dahulu.");
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(debtDate)) {
+      setError("Tanggal piutang tidak valid.");
+      return;
+    }
+
     if (!employeeId) {
       setError("Pilih karyawan terlebih dahulu.");
       return;
@@ -584,6 +604,18 @@ export default function EmployeeDebtManagement() {
         throw new Error("Piutang gagal disimpan.");
       }
 
+      // Simpan tanggal yang dipilih ke kolom debt_date.
+      const { error: dateUpdateError } = await supabase
+        .from("employee_debts")
+        .update({ debt_date: debtDate })
+        .eq("id", debtId);
+
+      if (dateUpdateError) {
+        throw new Error(
+          `Piutang sudah dibuat, tetapi tanggal gagal diperbarui: ${dateUpdateError.message}`
+        );
+      }
+
       setMessage(
         `Piutang berhasil disimpan sebesar ${rupiah(
           verifiedFinalTotal
@@ -595,6 +627,7 @@ export default function EmployeeDebtManagement() {
       setDiscount("0");
       setItems([]);
       setEmployeeId("");
+      setDebtDate(getLocalDateString());
       setNotes("");
       setCode("");
 
@@ -1576,6 +1609,32 @@ export default function EmployeeDebtManagement() {
                 </option>
               ))}
             </select>
+
+            {/* TANGGAL PIUTANG */}
+            <div style={{ marginTop: 18 }}>
+              <label className="field-label" htmlFor="debt-date">
+                Tanggal Piutang <span className="required">*</span>
+              </label>
+              <input
+                id="debt-date"
+                className="field"
+                type="date"
+                value={debtDate}
+                onChange={(event) => setDebtDate(event.target.value)}
+                required
+              />
+              <p
+                style={{
+                  margin: "7px 0 0",
+                  color: "#849087",
+                  fontSize: 11,
+                  lineHeight: 1.5,
+                }}
+              >
+                Pilih tanggal saat barang diambil. Tanggal ini akan digunakan
+                pada riwayat piutang karyawan.
+              </p>
+            </div>
 
             <div className="divider" />
 

@@ -310,21 +310,33 @@ const historyPeriods = useMemo(() => {
           (sum, item) => sum + Number(item.gross_salary || 0),
           0
         ),
-        totalDeduction: items.reduce(
-          (sum, item) =>
-            sum +
-            Number(item.absence_deduction || 0) +
-            Number(item.debt_deduction || 0),
-          0
-        ),
-        totalNet: items.reduce(
-          (sum, item) => sum + Number(item.net_salary || 0),
-          0
-        ),
+        totalDeduction: items.reduce((sum, item) => {
+          const salaryAfterAbsence = Math.max(
+            0,
+            Number(item.gross_salary || 0) - Number(item.absence_deduction || 0)
+          );
+          const debtDeduction = item.payment_status === "paid"
+            ? Number(item.debt_deduction || 0)
+            : Math.min(totalDebtByEmployee[item.employee_id] || 0, salaryAfterAbsence);
+          return sum + Number(item.absence_deduction || 0) + debtDeduction;
+        }, 0),
+        totalNet: items.reduce((sum, item) => {
+          const salaryAfterAbsence = Math.max(
+            0,
+            Number(item.gross_salary || 0) - Number(item.absence_deduction || 0)
+          );
+          const debtDeduction = item.payment_status === "paid"
+            ? Number(item.debt_deduction || 0)
+            : Math.min(totalDebtByEmployee[item.employee_id] || 0, salaryAfterAbsence);
+          const netSalary = item.payment_status === "paid"
+            ? Number(item.net_salary || 0)
+            : salaryAfterAbsence - debtDeduction;
+          return sum + netSalary;
+        }, 0),
       };
     })
     .sort((a, b) => b.start.localeCompare(a.start));
-}, [payrolls, periods]);
+}, [payrolls, periods, totalDebtByEmployee]);
 
 const selectedHistoryPeriod = historyPeriods.find(
   (period) => period.start === selectedHistoryStart
@@ -1428,6 +1440,10 @@ const selectedHistoryPeriod = historyPeriods.find(
           display: grid;
           gap: 12px;
           padding: 20px;
+        }
+
+        .history-employee-list {
+          padding-top: 10px;
         }
 
         .history-list-intro {
@@ -2565,74 +2581,85 @@ const selectedHistoryPeriod = historyPeriods.find(
         <span>{selectedHistoryPeriod.items.length} data</span>
       </div>
 
-      <div className="history-wrap">
-        <table className="history-table">
-          <thead>
-            <tr>
-              <th>Karyawan</th>
-              <th>Gaji kotor</th>
-              <th>Potongan absen</th>
-              <th>Potongan piutang</th>
-              <th>Gaji bersih</th>
-              <th>Status</th>
-              <th>Tanggal bayar</th>
-            </tr>
-          </thead>
+      <div className="employee-list history-employee-list">
+        {selectedHistoryPeriod.items
+          .slice()
+          .sort((a, b) =>
+            (a.employees?.full_name || "").localeCompare(
+              b.employees?.full_name || ""
+            )
+          )
+          .map((item) => {
+            const remainingDebt = totalDebtByEmployee[item.employee_id] || 0;
+            const absentDays = Number(item.absent_days || 0);
+            const grossSalary = Number(item.gross_salary || 0);
+            const absenceDeduction = Number(item.absence_deduction || 0);
+            const salaryAfterAbsence = Math.max(0, grossSalary - absenceDeduction);
+            const debtDeduction = item.payment_status === "paid"
+              ? Number(item.debt_deduction || 0)
+              : Math.min(remainingDebt, salaryAfterAbsence);
+            const netSalary = item.payment_status === "paid"
+              ? Number(item.net_salary || 0)
+              : salaryAfterAbsence - debtDeduction;
 
-          <tbody>
-            {selectedHistoryPeriod.items
-              .slice()
-              .sort((a, b) =>
-                (a.employees?.full_name || "").localeCompare(
-                  b.employees?.full_name || ""
-                )
-              )
-              .map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <div className="history-name">
-                      {item.employees?.full_name || "-"}
+            return (
+              <article key={item.id} className="employee-card">
+                <div className="employee-top">
+                  <div className="employee-identity">
+                    <div className="employee-avatar"><UserRound size={19} /></div>
+                    <div>
+                      <div className="employee-name">{item.employees?.full_name || "Karyawan"}</div>
+                      <div className="employee-code">{item.employees?.employee_code || "Tanpa kode karyawan"}</div>
                     </div>
-                    <div className="history-code">
-                      {item.employees?.employee_code || "-"}
+                  </div>
+
+                  {item.payment_status === "paid" ? (
+                    <StatusBadge tone="green">
+                      <CheckCircle2 size={12} />
+                      Sudah dibayar
+                    </StatusBadge>
+                  ) : (
+                    <StatusBadge tone="gold">
+                      <Clock size={12} />
+                      Menunggu pembayaran
+                    </StatusBadge>
+                  )}
+                </div>
+
+                <div className="employee-details">
+                  <Detail label="Gaji mingguan" value={rupiah(grossSalary)} />
+                  <Detail label="Tidak hadir" value={`${absentDays} / ${Number(item.scheduled_days || 7)} hari`} />
+                  <Detail label="Potongan absen" value={rupiah(absenceDeduction)} negative />
+                  <Detail label="Sisa piutang" value={rupiah(remainingDebt)} />
+                  <Detail label="Potongan piutang" value={rupiah(debtDeduction)} negative />
+                  <Detail label="Gaji bersih" value={rupiah(netSalary)} highlight />
+                </div>
+
+                {item.payment_status === "paid" ? (
+                  <div className="paid-info">
+                    <CheckCircle2 size={14} />
+                    Pembayaran berhasil pada {formatPaidAt(item.paid_at)}
+                  </div>
+                ) : (
+                  <div className="employee-footer">
+                    <div className="employee-note">
+                      <Info size={14} />
+                      <span>Potongan piutang masih berupa estimasi. Saldo piutang baru dikurangi setelah pembayaran berhasil.</span>
                     </div>
-                  </td>
-
-                  <td>{rupiah(Number(item.gross_salary))}</td>
-
-                  <td className="history-deduction">
-                    {rupiah(Number(item.absence_deduction))}
-                  </td>
-
-                  <td className="history-deduction">
-                    {rupiah(Number(item.debt_deduction))}
-                  </td>
-
-                  <td className="history-amount">
-                    {rupiah(Number(item.net_salary))}
-                  </td>
-
-                  <td>
-                    {item.payment_status === "paid" ? (
-                      <StatusBadge tone="green">
-                        <CheckCircle2 size={11} />
-                        Dibayar
-                      </StatusBadge>
-                    ) : (
-                      <StatusBadge tone="gold">
-                        <Clock size={11} />
-                        Draft
-                      </StatusBadge>
-                    )}
-                  </td>
-
-                  <td className="history-date">
-                    {formatPaidAt(item.paid_at)}
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
+                    <button
+                      type="button"
+                      onClick={() => void payEmployee(item)}
+                      disabled={payingId !== ""}
+                      className="primary-btn"
+                    >
+                      <CreditCard size={14} />
+                      {payingId === item.id ? "Memproses..." : "Bayar karyawan"}
+                    </button>
+                  </div>
+                )}
+              </article>
+            );
+          })}
       </div>
 
       <div className="history-total-footer">

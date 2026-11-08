@@ -47,14 +47,11 @@ type DashboardStats = {
   totalProducts: number;
   lowStock: number;
   todaySales: number;
-  todayProfit: number;
   todayTransactions: number;
-  pendingIntakes: number;
   activeEmployees: number;
   presentEmployees: number;
   absentEmployees: number;
   unpaidDebt: number;
-  draftPayroll: number;
 };
 
 type PageKey =
@@ -73,25 +70,105 @@ type PageKey =
   | "gaji"
   | "kas-harian";
 
-const menu: {
+type MenuItem = {
   key: PageKey;
   label: string;
   icon: typeof LayoutDashboard;
+};
+
+const menuGroups: {
+  title: string;
+  items: MenuItem[];
 }[] = [
-  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { key: "stok", label: "Barang & Stok", icon: Boxes },
-  { key: "kulakan", label: "Input Kulakan", icon: PackagePlus },
-  { key: "harga", label: "Persetujuan Harga", icon: Wallet },
-  { key: "kasir", label: "Kasir", icon: ShoppingCart },
-  { key: "penjualan", label: "Riwayat Penjualan", icon: ReceiptText },
-  { key: "laporan", label: "Laporan Laba Rugi", icon: ChartNoAxesCombined },
-  { key: "data-pegawai", label: "Data Pegawai", icon: Users },
-  { key: "akun-pegawai", label: "Akun Pegawai", icon: ShieldCheck },
-  { key: "kehadiran", label: "Kehadiran", icon: CalendarCheck },
-  { key: "piutang", label: "Piutang Pegawai", icon: HandCoins },
-  { key: "gaji", label: "Gaji Mingguan", icon: Wallet },
-  { key: "kas-harian", label: "Buka & Tutup Kas", icon: Wallet },
+  {
+    title: "MENU UTAMA",
+    items: [
+      {
+        key: "dashboard",
+        label: "Dashboard",
+        icon: LayoutDashboard,
+      },
+    ],
+  },
+  {
+    title: "KAS & PENJUALAN",
+    items: [
+      {
+        key: "kas-harian",
+        label: "Buka & Tutup Kas",
+        icon: Wallet,
+      },
+      {
+        key: "laporan",
+        label: "Laporan Laba Rugi",
+        icon: ChartNoAxesCombined,
+      },
+      {
+        key: "penjualan",
+        label: "Riwayat Penjualan",
+        icon: ReceiptText,
+      },
+      {
+        key: "kasir",
+        label: "Kasir",
+        icon: ShoppingCart,
+      },
+    ],
+  },
+  {
+    title: "PERSEDIAAN BARANG",
+    items: [
+      {
+        key: "stok",
+        label: "Barang & Stok",
+        icon: Boxes,
+      },
+      {
+        key: "kulakan",
+        label: "Input Kulakan",
+        icon: PackagePlus,
+      },
+      {
+        key: "harga",
+        label: "Persetujuan Harga",
+        icon: Wallet,
+      },
+    ],
+  },
+  {
+    title: "MANAJEMEN PEGAWAI",
+    items: [
+      {
+        key: "piutang",
+        label: "Piutang Pegawai",
+        icon: HandCoins,
+      },
+      {
+        key: "gaji",
+        label: "Gaji Mingguan",
+        icon: Wallet,
+      },
+      {
+        key: "kehadiran",
+        label: "Kehadiran",
+        icon: CalendarCheck,
+      },
+      {
+        key: "akun-pegawai",
+        label: "Akun Pegawai",
+        icon: ShieldCheck,
+      },
+      {
+        key: "data-pegawai",
+        label: "Data Pegawai",
+        icon: Users,
+      },
+    ],
+  },
 ];
+
+// Daftar menu gabungan untuk kebutuhan pencarian dan pemulihan halaman
+const menu = menuGroups.flatMap((group) => group.items);
 
 const rupiah = (n: number) =>
   new Intl.NumberFormat("id-ID", {
@@ -114,23 +191,20 @@ export default function Home() {
   const [authLoading, setAuthLoading] = useState(true);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [userRole, setUserRole] = useState("");
-  const [pendingIntakeCount, setPendingIntakeCount] = useState(0);
 
-  const [stats, setStats] = useState<DashboardStats>({
-    totalProducts: 0,
-    lowStock: 0,
-    todaySales: 0,
-    todayProfit: 0,
-    todayTransactions: 0,
-    pendingIntakes: 0,
-    activeEmployees: 0,
-    presentEmployees: 0,
-    absentEmployees: 0,
-    unpaidDebt: 0,
-    draftPayroll: 0,
-  });
+const [stats, setStats] = useState<DashboardStats>({
+  totalProducts: 0,
+  lowStock: 0,
+  todaySales: 0,
+  todayTransactions: 0,
+  activeEmployees: 0,
+  presentEmployees: 0,
+  absentEmployees: 0,
+  unpaidDebt: 0,
+});
 
   const [dashboardLoading, setDashboardLoading] = useState(true);
+const [pendingIntakeCount, setPendingIntakeCount] = useState(0);
 
   const activeItem = menu.find((item) => item.key === active) ?? menu[0];
 
@@ -139,185 +213,166 @@ export default function Home() {
   // =====================================================
 
   const loadDashboardStats = useCallback(async () => {
-    setDashboardLoading(true);
+  setDashboardLoading(true);
 
-    try {
-      // Tanggal hari ini berdasarkan WIB
-      const dateParts = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Jakarta",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).formatToParts(new Date());
+  try {
+    // Tanggal hari ini berdasarkan WIB
+    const dateParts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Jakarta",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
 
-      const year = dateParts.find((p) => p.type === "year")?.value;
-      const month = dateParts.find((p) => p.type === "month")?.value;
-      const day = dateParts.find((p) => p.type === "day")?.value;
+    const year = dateParts.find((p) => p.type === "year")?.value;
+    const month = dateParts.find((p) => p.type === "month")?.value;
+    const day = dateParts.find((p) => p.type === "day")?.value;
 
-      const today = `${year}-${month}-${day}`;
+    const today = `${year}-${month}-${day}`;
 
-      const startDate = new Date(`${today}T00:00:00+07:00`);
-      const startOfDay = startDate.toISOString();
-      const endOfDay = new Date(
-        startDate.getTime() + 24 * 60 * 60 * 1000
-      ).toISOString();
+    const startDate = new Date(`${today}T00:00:00+07:00`);
+    const startOfDay = startDate.toISOString();
+    const endOfDay = new Date(
+      startDate.getTime() + 24 * 60 * 60 * 1000
+    ).toISOString();
 
-      const [
-        productsResult,
-        lowStockResult,
-        salesResult,
-        profitResult,
-        intakeResult,
-        employeesResult,
-        attendanceResult,
-        debtResult,
-        payrollResult,
-      ] = await Promise.all([
-        supabase
-          .from("products")
-          .select("id", { count: "exact", head: true })
-          .eq("is_active", true),
+    const [
+      productsResult,
+      lowStockResult,
+      salesResult,
+      employeesResult,
+      attendanceResult,
+      debtResult,
+      pendingIntakesResult,
+    ] = await Promise.all([
+      // Total barang aktif
+      supabase
+        .from("products")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true),
 
-        supabase
-  .from("products")
-  .select("id, stock_quantity")
-  .eq("is_active", true)
-  .lt("stock_quantity", 3),
+      // Barang dengan stok menipis
+      supabase
+        .from("products")
+        .select("id, stock_quantity")
+        .eq("is_active", true)
+        .lt("stock_quantity", 3),
 
-        supabase
-          .from("sales")
-          .select("id, total")
-          .eq("status", "completed")
-          .gte("created_at", startOfDay)
-          .lt("created_at", endOfDay),
+      // Penjualan hari ini
+      supabase
+        .from("sales")
+        .select("id, total")
+        .eq("status", "completed")
+        .gte("created_at", startOfDay)
+        .lt("created_at", endOfDay),
 
-        supabase
-          .from("sale_items")
-          .select(`
-            gross_profit_snapshot,
-            sales!inner (
-              status,
-              created_at
-            )
-          `)
-          .eq("sales.status", "completed")
-          .gte("sales.created_at", startOfDay)
-          .lt("sales.created_at", endOfDay),
+      // Pegawai aktif
+      supabase
+        .from("employees")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true),
 
-        supabase
-          .from("purchase_intakes")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "pending_price"),
+      // Kehadiran hari ini
+      supabase
+        .from("attendance")
+        .select("id, employee_id")
+        .eq("attendance_date", today),
 
-        supabase
-          .from("employees")
-          .select("id", { count: "exact", head: true })
-          .eq("is_active", true),
+      // Piutang belum lunas
+      supabase
+        .from("employee_debts")
+        .select("remaining_amount")
+        .eq("status", "unpaid"),
 
-        supabase
-  .from("attendance")
-  .select("id, employee_id")
-  .eq("attendance_date", today),
+      // Kulakan menunggu persetujuan harga
+      supabase
+        .from("purchase_intakes")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending_price"),
+    ]);
 
-        supabase
-          .from("employee_debts")
-          .select("remaining_amount")
-          .eq("status", "unpaid"),
+    // Pemeriksaan error query
+    const queryResults = [
+      { name: "Total barang", result: productsResult },
+      { name: "Stok menipis", result: lowStockResult },
+      { name: "Penjualan", result: salesResult },
+      { name: "Pegawai", result: employeesResult },
+      { name: "Kehadiran", result: attendanceResult },
+      { name: "Piutang", result: debtResult },
+      { name: "Kulakan pending", result: pendingIntakesResult },
+    ];
 
-        supabase
-          .from("employee_payrolls")
-          .select("id", { count: "exact", head: true })
-          .eq("payment_status", "draft"),
-      ]);
+    queryResults.forEach(({ name, result }) => {
+      if (result.error) {
+        console.error(`Gagal memuat ${name}:`, result.error);
+      }
+    });
 
-      // Periksa error masing-masing query
-      const queryResults = [
-        { name: "Total barang", result: productsResult },
-        { name: "Stok menipis", result: lowStockResult },
-        { name: "Penjualan", result: salesResult },
-        { name: "Laba kotor", result: profitResult },
-        { name: "Kulakan", result: intakeResult },
-        { name: "pegawai", result: employeesResult },
-        { name: "Kehadiran", result: attendanceResult },
-        { name: "Piutang", result: debtResult },
-        { name: "Gaji", result: payrollResult },
-      ];
+    const sales = salesResult.error
+      ? []
+      : salesResult.data ?? [];
 
-      queryResults.forEach(({ name, result }) => {
-        if (result.error) {
-          console.error(`Gagal memuat ${name}:`, result.error);
-        }
-      });
+    const attendance = attendanceResult.error
+      ? []
+      : attendanceResult.data ?? [];
 
-      // Gunakan data yang berhasil dimuat
-      const sales = salesResult.error ? [] : salesResult.data ?? [];
-      const profits = profitResult.error ? [] : profitResult.data ?? [];
-      const attendance = attendanceResult.error
-        ? []
-        : attendanceResult.data ?? [];
-      const debts = debtResult.error ? [] : debtResult.data ?? [];
-      const lowStockProducts = lowStockResult.error
-        ? []
-        : lowStockResult.data ?? [];
+    const debts = debtResult.error
+      ? []
+      : debtResult.data ?? [];
 
-      const lowStockCount = lowStockProducts.length;
+    const lowStockProducts = lowStockResult.error
+      ? []
+      : lowStockResult.data ?? [];
 
-      const totalSales = sales.reduce(
-        (sum, item) => sum + Number(item.total ?? 0),
-        0
-      );
+    const lowStockCount = lowStockProducts.length;
 
-      const totalProfit = profits.reduce(
-        (sum, item) =>
-          sum + Number(item.gross_profit_snapshot ?? 0),
-        0
-      );
+    const totalSales = sales.reduce(
+      (sum, item) => sum + Number(item.total ?? 0),
+      0
+    );
 
-      const totalDebt = debts.reduce(
-        (sum, item) => sum + Number(item.remaining_amount ?? 0),
-        0
-      );
+    const totalDebt = debts.reduce(
+      (sum, item) => sum + Number(item.remaining_amount ?? 0),
+      0
+    );
 
-      setStats({
-        totalProducts: productsResult.error
-          ? 0
-          : productsResult.count ?? 0,
+    const activeEmployeeCount = employeesResult.error
+      ? 0
+      : employeesResult.count ?? 0;
 
-        lowStock: lowStockCount,
-        todaySales: totalSales,
-        todayProfit: totalProfit,
-        todayTransactions: sales.length,
+    setStats({
+      totalProducts: productsResult.error
+        ? 0
+        : productsResult.count ?? 0,
 
-        pendingIntakes: intakeResult.error
-          ? 0
-          : intakeResult.count ?? 0,
+      lowStock: lowStockCount,
+      todaySales: totalSales,
+      todayTransactions: sales.length,
 
-        activeEmployees: employeesResult.error
-          ? 0
-          : employeesResult.count ?? 0,
+      activeEmployees: activeEmployeeCount,
+      presentEmployees: attendance.length,
 
-       presentEmployees: attendance.length,
+      absentEmployees: Math.max(
+        0,
+        activeEmployeeCount - attendance.length
+      ),
 
-absentEmployees: Math.max(
-  0,
-  (employeesResult.error ? 0 : employeesResult.count ?? 0) -
-    attendance.length
-),
+      unpaidDebt: totalDebt,
+    });
 
-        unpaidDebt: totalDebt,
+    setPendingIntakeCount(
+      pendingIntakesResult.error
+        ? 0
+        : pendingIntakesResult.count ?? 0
+    );
 
-        draftPayroll: payrollResult.error
-          ? 0
-          : payrollResult.count ?? 0,
-      });
-
-      console.log("Statistik dashboard selesai dimuat.");
-    } catch (error) {
-      console.error("Gagal memuat statistik dashboard:", error);
-    } finally {
-      setDashboardLoading(false);
-    }
-  }, [supabase]);
+    console.log("Statistik dashboard selesai dimuat.");
+  } catch (error) {
+    console.error("Gagal memuat statistik dashboard:", error);
+  } finally {
+    setDashboardLoading(false);
+  }
+}, [supabase]);
 
   // =====================================================
   // MEMULIHKAN HALAMAN TERAKHIR
@@ -443,83 +498,54 @@ absentEmployees: Math.max(
     void loadDashboardStats();
   }, [authLoading, loggedIn, userRole, loadDashboardStats]);
 
-  // =====================================================
-  // NOTIFIKASI KULAKAN
-  // =====================================================
-
-  useEffect(() => {
-    if (authLoading || !loggedIn || userRole === "employee") {
-      return;
-    }
-
-    let mounted = true;
-
-    async function loadPendingIntakes() {
-      const { count, error } = await supabase
-        .from("purchase_intakes")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "pending_price");
-
-      if (!error && mounted) {
-        setPendingIntakeCount(count ?? 0);
-      }
-
-      if (error) {
-        console.error("Gagal memuat notifikasi kulakan:", error);
-      }
-    }
-
-    void loadPendingIntakes();
-
-  // =====================================================
+// =====================================================
 // REALTIME SUPABASE - OWNER DASHBOARD
 // =====================================================
 
-const realtimeTables = [
-  "products",
-  "sales",
-  "sale_items",
-  "purchase_intakes",
-  "employees",
-  "employee_attendance",
-  "employee_debts",
-  "employee_payrolls",
-];
+useEffect(() => {
+  if (authLoading || !loggedIn || userRole === "employee") {
+    return;
+  }
 
-const channel = supabase.channel("owner-dashboard-realtime");
+  const realtimeTables = [
+    "products",
+    "sales",
+    "sale_items",
+    "employees",
+    "attendance",
+    "employee_debts",
+    "employee_payrolls",
+    "purchase_intakes",
+  ];
 
-realtimeTables.forEach((table) => {
-  channel.on(
-    "postgres_changes",
-    {
-      event: "*",
-      schema: "public",
-      table: table,
-    },
-    () => {
-      void loadDashboardStats();
+  const channel = supabase.channel("owner-dashboard-realtime");
 
-      if (table === "purchase_intakes") {
-        void loadPendingIntakes();
+  realtimeTables.forEach((table) => {
+    channel.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table,
+      },
+      () => {
+        void loadDashboardStats();
       }
-    }
-  );
-});
+    );
+  });
 
-channel.subscribe();
+  channel.subscribe();
 
-return () => {
-  mounted = false;
-  void supabase.removeChannel(channel);
-};
-
-  }, [
-    supabase,
-    authLoading,
-    loggedIn,
-    userRole,
-    loadDashboardStats,
-  ]);
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}, [
+  supabase,
+  authLoading,
+  loggedIn,
+  userRole,
+  loadDashboardStats,
+]);
 
 // =====================================================
 // LOGOUT
@@ -623,28 +649,38 @@ if (userRole === "employee") {
 
         <div className="menu-label">MENU UTAMA</div>
 
-        <nav className="nav-list">
-          {menu.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              type="button"
-              className={`nav-item ${
-                active === key ? "active" : ""
-              }`}
-              onClick={() => handleMenuClick(key)}
-            >
-              <Icon size={19} strokeWidth={1.8} />
+       <nav className="nav-list">
+  {menuGroups.map((group) => (
+    <div className="nav-group" key={group.title}>
+      <div className="nav-group-title">
+        {group.title}
+      </div>
 
-              <span>{label}</span>
+      <div className="nav-group-items">
+        {group.items.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            type="button"
+            className={`nav-item ${
+              active === key ? "active" : ""
+            }`}
+            onClick={() => handleMenuClick(key)}
+          >
+            <Icon size={19} strokeWidth={1.8} />
 
-              {key === "harga" && pendingIntakeCount > 0 && (
-                <span className="nav-count">
-                  {pendingIntakeCount}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
+            <span>{label}</span>
+
+            {key === "harga" && pendingIntakeCount > 0 && (
+              <span className="nav-count">
+                {pendingIntakeCount}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  ))}
+</nav>
 
         <div className="sidebar-bottom">
           <div className="user-mini">
@@ -810,52 +846,45 @@ if (userRole === "employee") {
                 </div>
               )}
 
-              {/* STATISTIK UTAMA */}
-              <div className="stats-grid">
-                <StatCard
-                  title="Total Barang"
-                  value={
-                    dashboardLoading
-                      ? "Memuat..."
-                      : stats.totalProducts.toLocaleString("id-ID")
-                  }
-                  note="Jumlah produk aktif"
-                  icon={<Boxes size={20} />}
-                />
+             {/* STATISTIK UTAMA */}
+<div className="stats-grid">
+  <StatCard
+    title="Total Barang"
+    value={
+      dashboardLoading
+        ? "Memuat..."
+        : stats.totalProducts.toLocaleString("id-ID")
+    }
+    note="Jumlah produk aktif"
+    icon={<Boxes size={20} />}
+    onClick={() => handleMenuClick("stok")}
+  />
 
-                <StatCard
-                  title="Stok Menipis"
-                  value={
-                    dashboardLoading
-                      ? "Memuat..."
-                      : stats.lowStock.toLocaleString("id-ID")
-                  }
-                  note="Barang yang perlu segera diisi"
-                  icon={<ClipboardList size={20} />}
-                />
+  <StatCard
+    title="Stok Menipis"
+    value={
+      dashboardLoading
+        ? "Memuat..."
+        : stats.lowStock.toLocaleString("id-ID")
+    }
+    note="Barang yang perlu segera diisi"
+    icon={<ClipboardList size={20} />}
+    onClick={() => handleMenuClick("stok")}
+  />
 
-                <StatCard
-                  title="Penjualan Hari Ini"
-                  value={
-                    dashboardLoading
-                      ? "Memuat..."
-                      : rupiah(stats.todaySales)
-                  }
-                  note={`${stats.todayTransactions} transaksi selesai`}
-                  icon={<ReceiptText size={20} />}
-                />
+  <StatCard
+    title="Penjualan Hari Ini"
+    value={
+      dashboardLoading
+        ? "Memuat..."
+        : rupiah(stats.todaySales)
+    }
+    note={`${stats.todayTransactions} transaksi selesai`}
+    icon={<ReceiptText size={20} />}
+    onClick={() => handleMenuClick("penjualan")}
+  />
 
-                <StatCard
-                  title="Laba Kotor Hari Ini"
-                  value={
-                    dashboardLoading
-                      ? "Memuat..."
-                      : rupiah(stats.todayProfit)
-                  }
-                  note="Berdasarkan snapshot transaksi"
-                  icon={<ChartNoAxesCombined size={20} />}
-                />
-              </div>
+</div>
 
               {/* RINGKASAN AKTIVITAS TOKO */}
               <div className="dashboard-section">
@@ -870,137 +899,58 @@ if (userRole === "employee") {
                 </div>
 
                 <div className="stats-grid">
-                  <StatCard
-                    title="Kulakan Menunggu Persetujuan"
-                    value={
-                      dashboardLoading
-                        ? "Memuat..."
-                        : stats.pendingIntakes.toLocaleString("id-ID")
-                    }
-                    note="Menunggu penetapan harga jual"
-                    icon={<PackagePlus size={20} />}
-                  />
+              
+<StatCard
+  title="Pegawai Aktif"
+  value={
+    dashboardLoading
+      ? "Memuat..."
+      : stats.activeEmployees.toLocaleString("id-ID")
+  }
+  note="Total pegawai aktif"
+  icon={<Users size={20} />}
+  onClick={() => handleMenuClick("data-pegawai")}
+/>
 
-                  <StatCard
-                    title="Pegawai Aktif"
-                    value={
-                      dashboardLoading
-                        ? "Memuat..."
-                        : stats.activeEmployees.toLocaleString("id-ID")
-                    }
-                    note="Total pegawai aktif"
-                    icon={<Users size={20} />}
-                  />
+<StatCard
+  title="Hadir Hari Ini"
+  value={
+    dashboardLoading
+      ? "Memuat..."
+      : stats.presentEmployees.toLocaleString("id-ID")
+  }
+  note="Pegawai tercatat hadir"
+  icon={<CalendarCheck size={20} />}
+  onClick={() => handleMenuClick("kehadiran")}
+/>
 
-                  <StatCard
-                    title="Hadir Hari Ini"
-                    value={
-                      dashboardLoading
-                        ? "Memuat..."
-                        : stats.presentEmployees.toLocaleString("id-ID")
-                    }
-                    note="Pegawai tercatat hadir"
-                    icon={<CalendarCheck size={20} />}
-                  />
+<StatCard
+  title="Tidak Hadir Hari Ini"
+  value={
+    dashboardLoading
+      ? "Memuat..."
+      : stats.absentEmployees.toLocaleString("id-ID")
+  }
+  note="Pegawai tercatat tidak hadir"
+  icon={<Users size={20} />}
+  onClick={() => handleMenuClick("kehadiran")}
+/>
 
-                  <StatCard
-                    title="Tidak Hadir Hari Ini"
-                    value={
-                      dashboardLoading
-                        ? "Memuat..."
-                        : stats.absentEmployees.toLocaleString("id-ID")
-                    }
-                    note="Pegawai tercatat tidak hadir"
-                    icon={<Users size={20} />}
-                  />
-
-                  <StatCard
-                    title="Gaji Menunggu Pembayaran"
-                    value={
-                      dashboardLoading
-                        ? "Memuat..."
-                        : stats.draftPayroll.toLocaleString("id-ID")
-                    }
-                    note="Periode gaji berstatus draft"
-                    icon={<Wallet size={20} />}
-                  />
-
-                  <StatCard
-                    title="Total Piutang Pegawai"
-                    value={
-                      dashboardLoading
-                        ? "Memuat..."
-                        : rupiah(stats.unpaidDebt)
-                    }
-                    note="Akumulasi piutang yang belum lunas"
-                    icon={<HandCoins size={20} />}
-                  />
+<StatCard
+  title="Total Piutang Pegawai"
+  value={
+    dashboardLoading
+      ? "Memuat..."
+      : rupiah(stats.unpaidDebt)
+  }
+  note="Akumulasi piutang yang belum lunas"
+  icon={<HandCoins size={20} />}
+  onClick={() => handleMenuClick("piutang")}
+/>
                 </div>
               </div>
 
-              {/* AKSES CEPAT */}
-              <div className="dashboard-section">
-                <div className="section-heading">
-                  <div>
-                    <h2>Akses Cepat</h2>
-                    <p>Pilih fitur yang ingin kamu buka.</p>
-                  </div>
-                </div>
-
-                <div className="quick-grid">
-                  <button
-                    type="button"
-                    className="quick-item"
-                    onClick={() => handleMenuClick("kasir")}
-                  >
-                    <span className="quick-icon">
-                      <ShoppingCart size={21} />
-                    </span>
-
-                    <strong>Kasir</strong>
-                    <span>Buat transaksi penjualan</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="quick-item"
-                    onClick={() => handleMenuClick("kulakan")}
-                  >
-                    <span className="quick-icon">
-                      <PackagePlus size={21} />
-                    </span>
-
-                    <strong>Input Kulakan</strong>
-                    <span>Catat barang masuk</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="quick-item"
-                    onClick={() => handleMenuClick("stok")}
-                  >
-                    <span className="quick-icon">
-                      <Boxes size={21} />
-                    </span>
-
-                    <strong>Barang & Stok</strong>
-                    <span>Kelola inventaris toko</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="quick-item"
-                    onClick={() => handleMenuClick("penjualan")}
-                  >
-                    <span className="quick-icon">
-                      <ReceiptText size={21} />
-                    </span>
-
-                    <strong>Riwayat Penjualan</strong>
-                    <span>Lihat transaksi sebelumnya</span>
-                  </button>
-                </div>
-              </div>
+            
             </>
           ) : active === "kulakan" ? (
             <KulakanPage />
@@ -1072,14 +1022,21 @@ function StatCard({
   value,
   note,
   icon,
+  onClick,
 }: {
   title: string;
   value: string;
   note: string;
   icon: ReactNode;
+  onClick: () => void;
 }) {
   return (
-    <div className="stat-card">
+    <button
+      type="button"
+      className="stat-card stat-card-clickable"
+      onClick={onClick}
+      aria-label={`Buka ${title}`}
+    >
       <div className="stat-top">
         <span>{title}</span>
         <div className="stat-icon">{icon}</div>
@@ -1088,6 +1045,7 @@ function StatCard({
       <strong className="stat-value">{value}</strong>
 
       <span className="stat-note">{note}</span>
-    </div>
+    </button>
   );
 }
+
