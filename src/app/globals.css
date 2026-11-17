@@ -7098,3 +7098,43 @@ tbody tr:last-child td {
   font-size: 11px;
   font-weight: 700;
 }
+
+
+.price-profit-type {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 14px 0 18px;
+}
+
+.price-profit-type-button {
+  min-height: 43px;
+  border: 1px solid #deded8;
+  border-radius: 10px;
+  background: #fff;
+  color: #555;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.price-profit-type-button.active {
+  background: #173f32;
+  border-color: #173f32;
+  color: #fff;
+}
+
+.price-profit-type-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.price-percent-input input {
+  width: 100%;
+  min-width: 0;
+}
+
+.price-percent-input > span:first-child:not(:last-child) {
+  font-weight: 700;
+}

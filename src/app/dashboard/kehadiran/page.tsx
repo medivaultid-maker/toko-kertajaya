@@ -11,381 +11,500 @@ import {
   Filter,
   X,
   UserCheck,
-  ClipboardList,
+  UserX,
   ShieldCheck,
 } from "lucide-react";
 
+type Employee = {
+  id: string;
+  full_name: string;
+  employee_code: string | null;
+};
+
+type Session = "morning" | "afternoon";
+
 type Attendance = {
   id: string;
+  employee_id: string;
   attendance_date: string;
   check_in: string;
-  employees:
-    | {
-        full_name: string;
-        employee_code: string | null;
-      }
-    | null;
+  attendance_session: Session;
 };
+
+type AttendanceStatus =
+  | "Hadir"
+  | "Tidak Hadir"
+  | "Belum Absen"
+  | "Belum Dibuka";
+
+type AttendanceRow = {
+  key: string;
+  employee: Employee;
+  attendance_date: string;
+  session: Session;
+  check_in: string | null;
+  status: AttendanceStatus;
+};
+
+const SESSION_CONFIG: {
+  key: Session;
+  label: string;
+  start: number;
+  end: number;
+}[] = [
+  { key: "morning", label: "Pagi", start: 6 * 60, end: 13 * 60 },
+  { key: "afternoon", label: "Siang", start: 13 * 60, end: 20 * 60 },
+];
+
+function getJakartaNow() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+
+  const part = (type: string) =>
+    parts.find((item) => item.type === type)?.value ?? "";
+
+  return {
+    date: `${part("year")}-${part("month")}-${part("day")}`,
+    minutes: Number(part("hour")) * 60 + Number(part("minute")),
+  };
+}
+
+function getStatus(
+  selectedDate: string,
+  nowDate: string,
+  nowMinutes: number,
+  session: Session,
+  hasRecord: boolean
+): AttendanceStatus {
+  if (hasRecord) return "Hadir";
+  if (selectedDate > nowDate) return "Belum Dibuka";
+  if (selectedDate < nowDate) return "Tidak Hadir";
+
+  const config = SESSION_CONFIG.find((item) => item.key === session)!;
+
+  if (nowMinutes < config.start) return "Belum Dibuka";
+  if (nowMinutes >= config.end) return "Tidak Hadir";
+  return "Belum Absen";
+}
+
+function formatDate(date: string) {
+  return new Date(`${date}T00:00:00+07:00`).toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  });
+}
+
+function formatTime(value: string | null) {
+  if (!value) return "—";
+  return new Date(value).toLocaleTimeString("id-ID", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function statusClass(status: AttendanceStatus) {
+  if (status === "Hadir") return "approved";
+  if (status === "Tidak Hadir") return "not-present";
+  return "waiting";
+}
 
 export default function AttendancePage() {
   const supabase = useMemo(() => createClient(), []);
-
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [records, setRecords] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [filterDate, setFilterDate] = useState("");
+  const [filterDate, setFilterDate] = useState(() => getJakartaNow().date);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const loadAttendance = useCallback(async () => {
     setLoading(true);
     setError("");
 
     try {
-      let query = supabase
-        .from("attendance")
-        .select(`
-          id,
-          attendance_date,
-          check_in,
-          employees (
-            full_name,
-            employee_code
+      const [employeeResult, attendanceResult] = await Promise.all([
+        supabase
+          .from("employees")
+          .select("id, full_name, employee_code")
+          .order("full_name", { ascending: true }),
+        supabase
+          .from("attendance")
+          .select(
+            "id, employee_id, attendance_date, check_in, attendance_session"
           )
-        `)
-        .order("attendance_date", { ascending: false })
-        .order("check_in", { ascending: false });
+          .eq("attendance_date", filterDate)
+          .order("check_in", { ascending: true }),
+      ]);
 
-      if (filterDate) {
-        query = query.eq("attendance_date", filterDate);
-      }
+      if (employeeResult.error) throw employeeResult.error;
+      if (attendanceResult.error) throw attendanceResult.error;
 
-      const { data, error } = await query;
-
-      if (error) {
-        throw error;
-      }
-
-      setRecords((data || []) as unknown as Attendance[]);
+      setEmployees((employeeResult.data ?? []) as Employee[]);
+      setRecords((attendanceResult.data ?? []) as Attendance[]);
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : "Terjadi kesalahan saat memuat data."
+          : "Terjadi kesalahan saat memuat data kehadiran."
       );
+      setEmployees([]);
       setRecords([]);
     } finally {
       setLoading(false);
     }
-  }, [filterDate, supabase]);
+  }, [filterDate, refreshKey, supabase]);
 
   useEffect(() => {
     void loadAttendance();
   }, [loadAttendance]);
 
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta",
-  }).format(new Date());
+  // Refresh status agar sesi berubah otomatis saat jam 13.00 dan 20.00.
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setRefreshKey((value) => value + 1);
+    }, 60_000);
 
-  const todayCount = records.filter(
-    (record) => record.attendance_date === today
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const now = getJakartaNow();
+
+  const rows = useMemo<AttendanceRow[]>(() => {
+    return employees.flatMap((employee) =>
+      SESSION_CONFIG.map((session) => {
+        const record = records.find(
+          (item) =>
+            item.employee_id === employee.id &&
+            item.attendance_session === session.key
+        );
+
+        return {
+          key: `${employee.id}-${session.key}`,
+          employee,
+          attendance_date: filterDate,
+          session: session.key,
+          check_in: record?.check_in ?? null,
+          status: getStatus(
+            filterDate,
+            now.date,
+            now.minutes,
+            session.key,
+            Boolean(record)
+          ),
+        };
+      })
+    );
+  }, [employees, records, filterDate, now.date, now.minutes]);
+
+  const morningRows = rows.filter((row) => row.session === "morning");
+  const afternoonRows = rows.filter((row) => row.session === "afternoon");
+
+  const totalPresent = rows.filter((row) => row.status === "Hadir").length;
+  const totalAbsent = rows.filter(
+    (row) => row.status === "Tidak Hadir"
   ).length;
-
-  const formatDate = (date: string) =>
-    new Date(`${date}T00:00:00+07:00`).toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
-
-  const formatTime = (date: string) =>
-    new Date(date).toLocaleTimeString("id-ID", {
-      timeZone: "Asia/Jakarta",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+  
+  const formatStatusLabel = (status: AttendanceStatus) => status;
 
   return (
     <main className="attendance-page">
       <div className="attendance-container">
-
-        {/* HEADER */}
         <section className="hero">
           <div className="hero-decoration hero-decoration-one" />
           <div className="hero-decoration hero-decoration-two" />
-
           <div className="hero-content">
             <div>
               <div className="eyebrow">
                 <ShieldCheck size={14} />
                 MANAJEMEN KARYAWAN
               </div>
-
               <h1 className="title">Kehadiran Karyawan</h1>
-
               <p className="subtitle">
-                Pantau aktivitas kehadiran dan riwayat absensi
-                seluruh karyawan Toko Rosyidah.
+                Pantau kehadiran karyawan Toko Kertajaya pada sesi pagi dan
+                sesi siang.
               </p>
             </div>
-
             <div className="hero-icon">
               <CalendarCheck size={35} strokeWidth={1.5} />
             </div>
           </div>
-
-          <div className="hero-bottom"></div>
+          <div className="hero-bottom" />
         </section>
 
-        {/* ERROR NOTIFICATION */}
         {error && (
           <div className="alert danger" role="alert">
             <ShieldCheck size={19} />
             <div>
               <strong>Gagal memuat data kehadiran</strong>
               <p>{error}</p>
+              <p className="schema-hint">
+                Pastikan tabel employees memiliki kolom id, full_name,
+                employee_code dan tabel attendance memiliki kolom
+                attendance_session.
+              </p>
             </div>
           </div>
         )}
 
-        {/* STATISTICS */}
         <section className="stats">
           <div className="stat">
             <div>
-              <p className="stat-label">
-                Total Catatan Ditampilkan
-              </p>
-
-              <h2 className="stat-value">
-                {records.length}
-              </h2>
-
-              <p className="stat-caption">
-                Jumlah data kehadiran
-              </p>
+              <p className="stat-label">Total Karyawan</p>
+              <h2 className="stat-value">{loading ? "—" : employees.length}</h2>
+              <p className="stat-caption">Karyawan terdaftar</p>
             </div>
-
             <div className="stat-icon green">
-              <ClipboardList size={22} />
+              <Users size={22} />
             </div>
           </div>
 
           <div className="stat">
             <div>
-              <p className="stat-label">Hadir Hari Ini</p>
-
-              <h2 className="stat-value">
-                {filterDate ? "—" : todayCount}
-              </h2>
-
-              <p className="stat-caption">
-                {filterDate
-                  ? "Tersedia pada tampilan semua tanggal"
-                  : "Karyawan tercatat hadir hari ini"}
-              </p>
+              <p className="stat-label">Total Hadir</p>
+              <h2 className="stat-value">{loading ? "—" : totalPresent}</h2>
+              <p className="stat-caption">Akumulasi sesi pagi dan siang</p>
             </div>
-
-            <div className="stat-icon gold">
+            <div className="stat-icon green">
               <UserCheck size={22} />
             </div>
           </div>
+
+          <div className="stat">
+            <div>
+              <p className="stat-label">Total Tidak Hadir</p>
+              <h2 className="stat-value">{loading ? "—" : totalAbsent}</h2>
+              <p className="stat-caption">Sesi yang sudah ditutup tanpa absen</p>
+            </div>
+            <div className="stat-icon red">
+              <UserX size={22} />
+            </div>
+          </div>
+
         </section>
 
-        {/* ATTENDANCE TABLE */}
         <section className="panel">
-
-          {/* PANEL HEADER */}
           <div className="panel-heading table-heading">
             <div className="heading-left">
               <div className="heading-icon">
                 <CalendarDays size={21} />
               </div>
-
               <div className="heading-text">
-                <h2>Riwayat Kehadiran</h2>
+                <h2>Rekap Kehadiran Harian</h2>
                 <p>
-                  Catatan kehadiran diurutkan dari yang terbaru.
+                  Setiap karyawan ditampilkan dua kali, sesuai sesi pagi dan
+                  sesi siang.
                 </p>
               </div>
             </div>
           </div>
 
           <div className="panel-body">
+            <div className="filter-area">
+              <div className="filter-label">
+                <Filter size={15} />
+                FILTER DATA
+              </div>
+              <div className="filter-controls">
+                <div className="field-wrap">
+                  <label className="field-label">
+                    <CalendarDays size={15} />
+                    <span>Pilih Tanggal</span>
+                  </label>
+                  <div className="date-input-wrap">
+                    <input
+                      type="date"
+                      value={filterDate}
+                      onChange={(event) => setFilterDate(event.target.value)}
+                      className="field date-field"
+                    />
+                  </div>
+                </div>
 
-           {/* FILTER */}
-<div className="filter-area">
-  <div className="filter-label">
-    <Filter size={15} />
-    FILTER DATA
-  </div>
+                {filterDate !== getJakartaNow().date && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterDate(getJakartaNow().date)}
+                    className="button clear-filter"
+                  >
+                    <X size={15} />
+                    Ke Hari Ini
+                  </button>
+                )}
 
-  <div className="filter-controls">
-    <div className="field-wrap">
-      <label className="field-label">
-        <CalendarDays size={15} />
-        <span>Pilih Tanggal</span>
-      </label>
+                <button
+                  type="button"
+                  onClick={() => setRefreshKey((value) => value + 1)}
+                  className="button refresh-button"
+                  disabled={loading}
+                >
+                  <RefreshCw size={15} className={loading ? "spin" : ""} />
+                  Muat Ulang
+                </button>
+              </div>
+              <p className="filter-description">
+                Menampilkan rekap tanggal <strong>{formatDate(filterDate)}</strong>.
+                Jam operasional absensi menggunakan WIB.
+              </p>
+            </div>
 
-      <div className="date-input-wrap">
-  <input
-    type="date"
-    value={filterDate}
-    onChange={(e) => setFilterDate(e.target.value)}
-    className="field date-field"
-  />
-</div>
-    </div>
-
-    {filterDate && (
-      <button
-        type="button"
-        onClick={() => setFilterDate("")}
-        className="button clear-filter"
-      >
-        <X size={15} />
-        Hapus Filter
-      </button>
-    )}
-  </div>
-
-  {filterDate && (
-    <p className="filter-description">
-      Menampilkan catatan tanggal{" "}
-      <strong>{formatDate(filterDate)}</strong>
-    </p>
-  )}
-</div>
-
-            {/* LOADING */}
             {loading ? (
               <div className="empty">
                 <RefreshCw size={27} className="spin" />
                 <strong>Memuat data kehadiran...</strong>
-                <p>
-                  Mohon tunggu, sistem sedang mengambil data absensi.
-                </p>
+                <p>Mohon tunggu, sistem sedang mengambil data absensi.</p>
               </div>
             ) : error ? (
               <div className="empty">
                 <ShieldCheck size={30} />
                 <strong>Data belum dapat ditampilkan</strong>
-                <p>
-                  Periksa koneksi dan coba muat ulang data.
-                </p>
-
+                <p>Periksa struktur tabel dan koneksi Supabase, lalu coba lagi.</p>
                 <button
                   type="button"
-                  onClick={() => void loadAttendance()}
+                  onClick={() => setRefreshKey((value) => value + 1)}
                   className="button primary"
                 >
                   <RefreshCw size={15} />
                   Coba Lagi
                 </button>
               </div>
-            ) : records.length === 0 ? (
+            ) : employees.length === 0 ? (
               <div className="empty">
                 <div className="empty-icon">
-                  <CalendarCheck size={30} />
+                  <Users size={30} />
                 </div>
-
-                <strong>Belum ada catatan kehadiran</strong>
-
+                <strong>Belum ada data karyawan</strong>
                 <p>
-                  {filterDate
-                    ? "Tidak ditemukan catatan kehadiran pada tanggal yang dipilih."
-                    : "Catatan kehadiran karyawan akan muncul di bagian ini."}
+                  Data karyawan akan muncul di sini setelah tersedia pada tabel
+                  employees.
                 </p>
               </div>
             ) : (
               <>
-                {/* TABLE */}
-                <div className="table-wrap">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>No.</th>
-                        <th>Kode Karyawan</th>
-                        <th>Nama Karyawan</th>
-                        <th>Tanggal</th>
-                        <th>Jam Hadir</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
+                {[
+                  {
+                    key: "morning" as const,
+                    title: "Sesi Pagi",
+                    hours: "06.00–13.00 WIB",
+                    data: morningRows,
+                  },
+                  {
+                    key: "afternoon" as const,
+                    title: "Sesi Siang",
+                    hours: "13.00–20.00 WIB",
+                    data: afternoonRows,
+                  },
+                ].map((session) => {
+                  const present = session.data.filter(
+                    (row) => row.status === "Hadir"
+                  ).length;
+                  const absent = session.data.filter(
+                    (row) => row.status === "Tidak Hadir"
+                  ).length;
+                  const pending = session.data.length - present - absent;
 
-                    <tbody>
-                      {records.map((record, index) => (
-                        <tr key={record.id}>
-                          <td className="number-cell">
-                            {index + 1}
-                          </td>
+                  return (
+                    <section className="session-section" key={session.key}>
+                      <div className="session-header">
+                        <div>
+                          <span className="session-eyebrow">ABSENSI KARYAWAN</span>
+                          <h3>{session.title}</h3>
+                          <p><Clock size={13} /> {session.hours}</p>
+                        </div>
+                        <div className="session-summary">
+                          <span className="summary-present">{present} Hadir</span>
+                          <span className="summary-absent">{absent} Tidak Hadir</span>
+                          <span className="summary-pending">{pending} Menunggu</span>
+                        </div>
+                      </div>
 
-                          <td>
-                            <span className="code">
-                              {record.employees?.employee_code || "-"}
-                            </span>
-                          </td>
-
-                          <td>
-                            <div className="employee-name">
-                              <span className="employee-avatar">
-                                {record.employees?.full_name
-                                  ?.charAt(0)
-                                  .toUpperCase() || "?"}
-                              </span>
-
-                              <span className="name">
-                                {record.employees?.full_name ||
-                                  "Data pegawai tidak ditemukan"}
-                              </span>
-                            </div>
-                          </td>
-
-                          <td>
-                            <span className="date-text">
-                              {formatDate(record.attendance_date)}
-                            </span>
-                          </td>
-
-                          <td>
-                            <span className="time-chip">
-                              <Clock size={14} />
-                              {formatTime(record.check_in)} WIB
-                            </span>
-                          </td>
-
-                          <td>
-                            <span className="status approved">
-                              <span className="dot" />
-                              Hadir
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* TABLE FOOTER */}
-                <div className="table-footer">
-                  <span>
-                    Menampilkan {records.length} catatan kehadiran
-                  </span>
-
-                  <div className="footer-status">
-                    <span>
-                      <UserCheck size={14} />
-                      {records.length} Catatan Hadir
-                    </span>
-                  </div>
-                </div>
+                      <div className="table-wrap">
+                        <table className="table">
+                          <thead>
+                            <tr>
+                              <th>No.</th>
+                              <th>Kode Karyawan</th>
+                              <th>Nama Karyawan</th>
+                              <th>Tanggal</th>
+                              <th>Jam Hadir</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {session.data.map((row, index) => (
+                              <tr key={row.key}>
+                                <td className="number-cell">{index + 1}</td>
+                                <td>
+                                  <span className="code">
+                                    {row.employee.employee_code || "—"}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div className="employee-name">
+                                    <span className="employee-avatar">
+                                      {row.employee.full_name
+                                        ?.charAt(0)
+                                        .toUpperCase() || "?"}
+                                    </span>
+                                    <span className="name">
+                                      {row.employee.full_name}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className="date-text">
+                                    {formatDate(row.attendance_date)}
+                                  </span>
+                                </td>
+                                <td>
+                                  {row.check_in ? (
+                                    <span className="time-chip">
+                                      <Clock size={14} />
+                                      {formatTime(row.check_in)} WIB
+                                    </span>
+                                  ) : (
+                                    <span className="no-time">—</span>
+                                  )}
+                                </td>
+                                <td>
+                                  <span className={`status ${statusClass(row.status)}`}>
+                                    <span className="dot" />
+                                    {formatStatusLabel(row.status)}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="table-footer">
+                        <span>Menampilkan {session.data.length} karyawan</span>
+                        <div className="footer-status">
+                          <span><UserCheck size={14} /> {present} Hadir</span>
+                          <span><UserX size={14} /> {absent} Tidak Hadir</span>
+                        </div>
+                      </div>
+                    </section>
+                  );
+                })}
               </>
             )}
           </div>
         </section>
-
       </div>
 
-      {/* PAGE CSS */}
       <style jsx>{`
+
         .attendance-page {
           --emerald: #174b36;
           --emerald-dark: #103a2a;
@@ -536,11 +655,22 @@ export default function AttendancePage() {
 
         /* STATISTICS */
         .stats {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          align-items: stretch;
-          gap: 16px;
-        }
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
+}
 
         .stat {
           position: relative;
@@ -1157,6 +1287,108 @@ export default function AttendancePage() {
 
           .hero-icon {
             display: none;
+          }
+        }
+      
+        .refresh-button {
+          border: 1px solid #dce8de;
+          background: #edf4ef;
+          color: #356348;
+        }
+        .refresh-button:hover:not(:disabled) {
+          background: #e2eee4;
+        }
+        .refresh-button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        .session-section {
+          margin-top: 25px;
+        }
+        .session-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 14px;
+          margin-bottom: 13px;
+        }
+        .session-eyebrow {
+          color: #b99a62;
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 1.5px;
+        }
+        .session-header h3 {
+          margin: 5px 0;
+          color: #174b36;
+          font-family: var(--font-manrope), sans-serif;
+          font-size: 17px;
+          font-weight: 800;
+        }
+        .session-header p {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin: 0;
+          color: #89938a;
+          font-size: 10px;
+        }
+        .session-summary {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px;
+        }
+        .session-summary span {
+          padding: 7px 9px;
+          border-radius: 7px;
+          font-size: 9px;
+          font-weight: 800;
+        }
+        .summary-present {
+          background: #edf6ed;
+          color: #3e754b;
+        }
+        .summary-absent {
+          background: #fff0ee;
+          color: #a64d45;
+        }
+        .summary-pending {
+          background: #f8f3e8;
+          color: #92743f;
+        }
+        .status.not-present {
+          border-color: #f0d9d5;
+          background: #fff2ef;
+          color: #a64d45;
+        }
+        .status.waiting {
+          border-color: #eee4ca;
+          background: #fbf7ed;
+          color: #92743f;
+        }
+        .status .dot {
+          background: currentColor;
+        }
+        .stat-icon.red {
+          background: #fff0ee;
+          color: #b35b50;
+        }
+        .no-time {
+          color: #a0a89f;
+        }
+        .schema-hint {
+          margin-top: 6px !important;
+          font-size: 10px;
+          opacity: 0.85;
+        }
+        @media (max-width: 700px) {
+          .session-header {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+          .session-summary {
+            width: 100%;
           }
         }
       `}</style>

@@ -19,14 +19,23 @@ type Employee = {
 type Attendance = {
   id: string;
   attendance_date: string;
-  check_in: string;
+  check_in: string | null;
+  attendance_session: "morning" | "afternoon" | null;
 };
 
-type AttendanceRecord = {
-  id: string;
-  attendance_date: string;
-  check_in: string | null;
-};
+type AttendanceRecord = Attendance;
+
+type AttendanceSession = "morning" | "afternoon";
+
+const ATTENDANCE_SESSIONS: {
+  key: AttendanceSession;
+  label: string;
+  start: number;
+  end: number;
+}[] = [
+  { key: "morning", label: "Sesi Pagi", start: 6 * 60, end: 13 * 60 },
+  { key: "afternoon", label: "Sesi Siang", start: 13 * 60, end: 20 * 60 },
+];
 
 type Payroll = {
   id: string;
@@ -70,8 +79,9 @@ export default function EmployeeDashboard() {
   const [supabase] = useState(() => createClient());
 
   const [employee, setEmployee] = useState<Employee | null>(null);
-  const [todayAttendance, setTodayAttendance] = useState<Attendance | null>(null);
+  const [todayAttendances, setTodayAttendances] = useState<Attendance[]>([]);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
+  const [clockNow, setClockNow] = useState(() => new Date());
   const [payrolls, setPayrolls] = useState<Payroll[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [debtItems, setDebtItems] = useState<DebtItem[]>([]);
@@ -89,6 +99,25 @@ export default function EmployeeDashboard() {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+
+  const jakartaClock = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(clockNow);
+  const [jakartaHour, jakartaMinute] = jakartaClock.split(":").map(Number);
+  const jakartaMinutes = jakartaHour * 60 + jakartaMinute;
+
+  const getSessionAttendance = (session: AttendanceSession) =>
+    todayAttendances.find((item) => item.attendance_session === session) || null;
+
+  const getSessionState = (session: typeof ATTENDANCE_SESSIONS[number]) => {
+    if (getSessionAttendance(session.key)) return "present";
+    if (jakartaMinutes < session.start) return "upcoming";
+    if (jakartaMinutes < session.end) return "open";
+    return "absent";
+  };
 
   const formatDate = (value: string) => {
     if (!value) return "-";
@@ -157,29 +186,25 @@ export default function EmployeeDashboard() {
         await Promise.all([
           supabase
             .from("attendance")
-            .select("id, attendance_date, check_in")
+            .select("id, attendance_date, check_in, attendance_session")
             .eq("employee_id", employeeId)
-            .eq("attendance_date", today)
-            .order("check_in", { ascending: false })
-            .limit(1)
-            .maybeSingle(),
+            .eq("attendance_date", today),
 
           supabase
             .from("attendance")
-            .select("id, attendance_date, check_in")
+            .select("id, attendance_date, check_in, attendance_session")
             .eq("employee_id", employeeId)
             .order("attendance_date", { ascending: false })
             .order("check_in", { ascending: false })
-            .limit(50),
+            .limit(100),
 
           supabase
-            .from("employee_payrolls")
-            .select(
-              "id, week_start, week_end, gross_salary, absence_deduction, debt_deduction, net_salary, payment_status, paid_at, notes"
-            )
-            .eq("employee_id", employeeId)
-            .eq("payment_status", "paid")
-            .order("week_start", { ascending: false }),
+  .from("employee_payrolls")
+  .select(
+    "id, week_start, week_end, gross_salary, absence_deduction, debt_deduction, net_salary, payment_status, paid_at, notes"
+  )
+  .eq("employee_id", employeeId)
+  .order("week_start", { ascending: false }),
 
           supabase
             .from("employee_debts")
@@ -196,8 +221,8 @@ export default function EmployeeDashboard() {
       if (payrollResult.error) throw payrollResult.error;
       if (debtResult.error) throw debtResult.error;
 
-      setTodayAttendance(todayResult.data);
-      setAttendanceHistory(attendanceResult.data || []);
+      setTodayAttendances((todayResult.data || []) as Attendance[]);
+      setAttendanceHistory((attendanceResult.data || []) as AttendanceRecord[]);
       setPayrolls(payrollResult.data || []);
       setDebts(debtResult.data || []);
 
@@ -228,6 +253,12 @@ export default function EmployeeDashboard() {
 
   useEffect(() => {
     void loadDashboard();
+    const clockTimer = window.setInterval(() => setClockNow(new Date()), 30_000);
+    const refreshTimer = window.setInterval(() => void loadDashboard(), 60_000);
+    return () => {
+      window.clearInterval(clockTimer);
+      window.clearInterval(refreshTimer);
+    };
   }, [loadDashboard]);
 
   async function handleCheckIn() {
@@ -313,7 +344,7 @@ async function handleLogout() {
         <header className="employee-header">
           <div className="employee-brand">
             <div className="brand-icon"><Store size={23} /></div>
-            <div><strong>Toko Rosyidah</strong><span>Portal Pegawai</span></div>
+            <div><strong>Toko Kertajaya</strong><span>Portal Pegawai</span></div>
           </div>
           <div className="header-actions">
             <button className="refresh-button" onClick={() => void loadDashboard()} disabled={loading} title="Muat ulang data" type="button">
@@ -347,27 +378,49 @@ async function handleLogout() {
 
           {loading ? (
             <div className="loading-inline"><div className="small-spinner" />Memperbarui absensi...</div>
-          ) : todayAttendance ? (
-            <div className="attendance-done">
-              <div className="attendance-done-top">
-                <div className="done-icon"><CheckCircle2 size={25} /></div>
-                <div className="done-info"><span>STATUS KEHADIRAN</span><strong>Sudah Absen Masuk</strong></div>
-                <span className="present-badge">Hadir</span>
-              </div>
-              <div className="time-panel">
-                <span>Waktu Absen Masuk</span>
-                <div className="time-value"><Clock size={23} />{formatTime(todayAttendance.check_in)}</div>
-                <small>Waktu Indonesia Barat (WIB)</small>
-              </div>
-            </div>
           ) : (
-            <div className="attendance-pending">
-              <div className="pending-icon"><Clock size={29} /></div>
-              <h3>Belum Absen Hari Ini</h3>
-              <p>Jangan lupa mencatat waktu mulai bekerja kamu.</p>
-              <button onClick={handleCheckIn} disabled={checkingIn} className="checkin-button" type="button">
-                {checkingIn ? <><span className="button-spinner" />Mencatat Absensi...</> : <>ABSEN MASUK<ArrowRight size={18} /></>}
-              </button>
+            <div className="session-list">
+              {ATTENDANCE_SESSIONS.map((session) => {
+                const attendance = getSessionAttendance(session.key);
+                const state = getSessionState(session);
+                const isSubmitting = checkingIn;
+                return (
+                  <div className="session-attendance" key={session.key}>
+                    <div className="session-topline">
+                      <div>
+                        <strong>{session.label}</strong>
+                        <span>{session.key === "morning" ? "06.00–13.00 WIB" : "13.00–20.00 WIB"}</span>
+                      </div>
+                      {state === "present" ? (
+                        <span className="present-badge">Hadir</span>
+                      ) : state === "absent" ? (
+                        <span className="status-badge status-absent">Tidak Hadir</span>
+                      ) : state === "open" ? (
+                        <span className="status-badge status-open">Sedang Berlangsung</span>
+                      ) : (
+                        <span className="status-badge status-upcoming">Belum Dibuka</span>
+                      )}
+                    </div>
+                    {attendance ? (
+                      <div className="session-time">
+                        <CheckCircle2 size={17} />
+                        <span>Absen masuk pukul <strong>{attendance.check_in ? formatTime(attendance.check_in) : "-"}</strong></span>
+                      </div>
+                    ) : state === "open" ? (
+                      <div className="session-action">
+                        <p>Kamu belum melakukan absensi untuk sesi ini.</p>
+                        <button onClick={handleCheckIn} disabled={isSubmitting} className="checkin-button" type="button">
+                          {isSubmitting ? <><span className="button-spinner" />Mencatat Absensi...</> : <>ABSEN {session.key === "morning" ? "PAGI" : "SIANG"}<ArrowRight size={18} /></>}
+                        </button>
+                      </div>
+                    ) : state === "upcoming" ? (
+                      <p className="session-hint">Tombol absensi akan aktif saat sesi dimulai.</p>
+                    ) : (
+                      <p className="session-hint">Waktu absensi sesi ini sudah berakhir.</p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
@@ -409,7 +462,7 @@ async function handleLogout() {
                     <div className="record-icon"><CalendarCheck size={19} /></div>
                     <div className="record-info">
                       <strong>{formatDate(record.attendance_date)}</strong>
-                      <span><Clock size={12} />{record.check_in ? `Absen masuk ${formatTime(record.check_in)}` : "Jam masuk tidak tersedia"}</span>
+                      <span><Clock size={12} />{record.attendance_session === "morning" ? "Sesi Pagi" : record.attendance_session === "afternoon" ? "Sesi Siang" : "Sesi tidak diketahui"}{record.check_in ? ` • ${formatTime(record.check_in)}` : ""}</span>
                     </div>
                     <div className="record-status"><span className="status-badge status-present">Hadir</span></div>
                   </div>
@@ -427,11 +480,7 @@ async function handleLogout() {
               <div><h2>Riwayat Gaji</h2><p>Daftar penggajian yang sudah diproses Owner.</p></div>
               <span className="data-count">{payrolls.length} Periode</span>
             </div>
-            <div className="salary-summary">
-              <span>Total Gaji Bersih</span>
-              <strong>{formatRupiah(payrolls.reduce((sum, item) => sum + Number(item.net_salary || 0), 0))}</strong>
             
-            </div>
             {payrolls.length === 0 ? (
               <div className="empty-state"><Wallet size={35} /><strong>Belum Ada Riwayat Gaji</strong><span>Gaji akan muncul di sini setelah Owner menyelesaikan persetujuan periode kamu.</span></div>
             ) : (
@@ -441,7 +490,15 @@ async function handleLogout() {
                     <div className="payroll-top">
                       <div className="payroll-period-icon"><Receipt size={19} /></div>
                       <div className="payroll-period"><strong>Periode Penggajian</strong><span>{formatShortDate(item.week_start)} – {formatShortDate(item.week_end)}</span></div>
-                      <span className="paid-badge"><CheckCircle2 size={13} />Dibayar</span>
+                      {item.payment_status === "paid" ? (
+  <span className="paid-badge">
+    <CheckCircle2 size={13} />Dibayar
+  </span>
+) : (
+  <span className="status-badge status-open">
+    Belum Dibayar
+  </span>
+)}
                     </div>
                     <div className="salary-detail">
                       <div><span>Gaji Kotor</span><strong>{formatRupiah(item.gross_salary)}</strong></div>
@@ -514,7 +571,7 @@ async function handleLogout() {
           </section>
         )}
 
-        <footer className="employee-footer">© {new Date().getFullYear()} Toko Rosyidah <span>•</span> Sebaung</footer>
+        <footer className="employee-footer">© {new Date().getFullYear()} Toko Kertajaya <span>•</span> Sebaung</footer>
       </div>
 
       <style jsx>{`
@@ -564,6 +621,18 @@ async function handleLogout() {
         .checkin-button{width:100%;max-width:340px;min-height:49px;display:flex;align-items:center;justify-content:center;gap:10px;margin:20px auto 0;padding:12px 18px;border:0;border-radius:10px;background:#176b45;color:white;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer}
         .checkin-button:hover:not(:disabled){background:#125b3a;transform:translateY(-1px)}.checkin-button:disabled{opacity:.7;cursor:wait}
         .button-spinner{width:15px;height:15px;border-color:rgba(255,255,255,.3);border-top-color:white}
+        .session-list{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
+        .session-attendance{min-width:0;padding:17px;border:1px solid #e5eee7;border-radius:13px;background:#fbfdfb}
+        .session-topline{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+        .session-topline>div{display:flex;flex-direction:column;gap:5px}
+        .session-topline strong{color:#263e30;font-size:13px;font-weight:800}
+        .session-topline>div span{color:#91a096;font-size:10px}
+        .session-time{display:flex;align-items:center;gap:8px;margin-top:17px;padding-top:13px;border-top:1px solid #e5eee7;color:#218653;font-size:11px}
+        .session-time span{color:#718277}.session-time strong{color:#176b45}
+        .session-action{margin-top:12px}.session-action p,.session-hint{margin:12px 0 0;color:#89968d;font-size:10px;line-height:1.6}
+        .session-attendance .checkin-button{max-width:none;min-height:43px;margin-top:12px;font-size:11px}
+        .status-open,.status-upcoming{display:inline-flex;padding:6px 9px;border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap}
+        .status-open{background:#fff5df;color:#986b16}.status-upcoming{background:#eef2f0;color:#718078}
         .menu-section{margin-bottom:22px}.menu-title{margin-bottom:14px}
         .menu-title h2{margin:0;color:#263e30;font-size:17px;font-weight:800}.menu-title p{margin:5px 0 0;color:#91a096;font-size:11px}
         .menu-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
@@ -625,7 +694,7 @@ async function handleLogout() {
           .employee-page{padding:19px 14px 10px}.employee-header{margin-bottom:31px}
           .employee-brand strong{font-size:15px}.welcome-section h1{font-size:27px}
           .attendance-card,.content-card{padding:18px;border-radius:15px}
-          .menu-grid{grid-template-columns:1fr}.menu-card{flex-direction:row;align-items:center;gap:12px;padding:13px}
+          .session-list{grid-template-columns:1fr}.menu-grid{grid-template-columns:1fr}.menu-card{flex-direction:row;align-items:center;gap:12px;padding:13px}
           .menu-card-text{gap:4px}.menu-arrow{margin-left:auto}.time-value{font-size:27px}
           .record-item{gap:9px}.record-info strong{font-size:11px}
           .record-status .status-badge{padding:5px 7px;font-size:9px}

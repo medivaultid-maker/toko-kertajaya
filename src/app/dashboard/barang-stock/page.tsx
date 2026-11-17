@@ -143,27 +143,8 @@ const loadProducts = useCallback(async () => {
   const displayedProducts =
     listView === "active" ? activeProducts : inactiveProducts;
 
-  const approvedCount = activeProducts.filter(
-    (product) => product.price_status === "approved"
-  ).length;
-
-  const pendingCount = activeProducts.length - approvedCount;
-
   const totalStock = activeProducts.reduce(
     (total, product) => total + Number(product.stock_quantity || 0),
-    0
-  );
-
-  // Estimasi modal: harga kulakan terkini x stok yang masih tersedia.
-  const totalStockCost = activeProducts.reduce(
-    (total, product) => {
-      if (product.current_purchase_cost === null) return total;
-      return (
-        total +
-        Number(product.current_purchase_cost || 0) *
-          Number(product.stock_quantity || 0)
-      );
-    },
     0
   );
 
@@ -179,12 +160,6 @@ const loadProducts = useCallback(async () => {
     },
     0
   );
-
-  const productsWithoutPurchaseCost = activeProducts.filter(
-    (product) =>
-      Number(product.stock_quantity || 0) > 0 &&
-      product.current_purchase_cost === null
-  ).length;
 
   const productsWithoutSellingPrice = activeProducts.filter(
     (product) =>
@@ -1486,32 +1461,6 @@ const loadProducts = useCallback(async () => {
             {totalStock.toLocaleString("id-ID")}
           </div>
           <div className="stat-caption">Akumulasi jumlah seluruh barang</div>
-        </div>
-
-        <div className="stat">
-          <div className="stat-label">Harga disetujui</div>
-          <div className="stat-value">
-            {approvedCount.toLocaleString("id-ID")}
-          </div>
-          <div className="stat-caption">Barang dengan harga jual</div>
-        </div>
-
-        <div className="stat">
-          <div className="stat-label">Menunggu harga</div>
-          <div className="stat-value">
-            {pendingCount.toLocaleString("id-ID")}
-          </div>
-          <div className="stat-caption">Barang yang perlu ditetapkan harganya</div>
-        </div>
-
-        <div className="stat">
-          <div className="stat-label">Estimasi Modal Stok</div>
-          <div className="stat-value">{formatRupiah(totalStockCost)}</div>
-          <div className="stat-caption">
-            {productsWithoutPurchaseCost > 0
-              ? `${productsWithoutPurchaseCost} jenis barang belum memiliki harga kulakan`
-              : "Harga kulakan x jumlah stok"}
-          </div>
         </div>
 
         <div className="stat">

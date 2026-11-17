@@ -10,7 +10,6 @@ import {
   Clock3,
   Boxes,
   Wallet,
-  Search,
   CheckCircle2,
   AlertCircle,
   X,
@@ -40,6 +39,13 @@ type Product = {
   brand: string;
 };
 
+type ProfitType = "percent" | "nominal";
+
+type ProfitSetting = {
+  type: ProfitType;
+  value: string;
+};
+
 const rupiah = (value: number) =>
   new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -59,12 +65,14 @@ export default function HargaPage() {
 
   const [intakes, setIntakes] = useState<Intake[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [percentages, setPercentages] = useState<Record<string, string>>({});
+
+  const [profitSettings, setProfitSettings] = useState<
+    Record<string, ProfitSetting>
+  >({});
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
- 
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -73,8 +81,6 @@ export default function HargaPage() {
     () => new Map(products.map((product) => [product.id, product])),
     [products]
   );
-
-const displayedIntakes = intakes;
 
   const totalUnits = intakes.reduce(
     (total, item) => total + Number(item.quantity_received || 0),
@@ -88,6 +94,25 @@ const displayedIntakes = intakes;
         Number(item.purchase_price || 0),
     0
   );
+
+  const getSetting = (intakeId: string): ProfitSetting =>
+    profitSettings[intakeId] || {
+      type: "percent",
+      value: "",
+    };
+
+  const updateSetting = (
+    intakeId: string,
+    updates: Partial<ProfitSetting>
+  ) => {
+    setProfitSettings((old) => ({
+      ...old,
+      [intakeId]: {
+        ...getSetting(intakeId),
+        ...updates,
+      },
+    }));
+  };
 
   const loadData = useCallback(
     async (showLoading = true) => {
@@ -118,12 +143,15 @@ const displayedIntakes = intakes;
 
         if (!profile) {
           setIsAdmin(false);
-          throw new Error("Profil admin tidak ditemukan.");
+          throw new Error("Profil pengguna tidak ditemukan.");
         }
 
-        if (profile.role !== "admin" || profile.is_active !== true) {
+        if (
+          !["admin", "owner"].includes(profile.role) ||
+          profile.is_active !== true
+        ) {
           setIsAdmin(false);
-          throw new Error("Akses hanya untuk admin aktif.");
+          throw new Error("Akses hanya untuk pemilik atau admin aktif.");
         }
 
         setIsAdmin(true);
@@ -168,21 +196,33 @@ const displayedIntakes = intakes;
   }, [loadData]);
 
   async function approve(intake: Intake) {
-    const rawPercentage = percentages[intake.id];
+    const setting = getSetting(intake.id);
+    const rawValue = setting.value;
 
-    if (!rawPercentage || rawPercentage.trim() === "") {
-      setError("Masukkan persentase keuntungan terlebih dahulu.");
+    if (rawValue.trim() === "") {
+      setError("Masukkan nilai keuntungan terlebih dahulu.");
       return;
     }
 
-    const percentage = Number(rawPercentage);
+    const profitValue = Number(rawValue);
 
-    if (
-      !Number.isFinite(percentage) ||
-      percentage < 0 ||
-      percentage > 1000
-    ) {
-      setError("Persentase harus antara 0 sampai 1000%.");
+    if (!Number.isFinite(profitValue) || profitValue < 0) {
+      setError("Nilai keuntungan harus berupa angka nol atau lebih.");
+      return;
+    }
+
+    if (setting.type === "percent" && profitValue > 1000) {
+      setError("Persentase keuntungan maksimal 1000%.");
+      return;
+    }
+
+    if (setting.type === "nominal" && profitValue > 1000000000) {
+      setError("Nominal keuntungan terlalu besar.");
+      return;
+    }
+
+    if (Number(intake.purchase_price) <= 0) {
+      setError("Harga kulakan harus lebih besar dari nol.");
       return;
     }
 
@@ -192,10 +232,11 @@ const displayedIntakes = intakes;
 
     try {
       const { data, error: rpcError } = await supabase.rpc(
-        "approve_purchase_intake",
+        "finalize_purchase_intake",
         {
           p_intake_id: intake.id,
-          p_profit_percent: percentage,
+          p_profit_type: setting.type,
+          p_profit_value: profitValue,
         }
       );
 
@@ -205,13 +246,20 @@ const displayedIntakes = intakes;
         throw new Error("Persetujuan harga tidak berhasil.");
       }
 
+      const methodLabel =
+        setting.type === "percent"
+          ? `${profitValue}%`
+          : rupiah(profitValue);
+
       setMessage(
-        `Harga berhasil disetujui. Harga jual: ${rupiah(
+        `Harga berhasil disetujui. Keuntungan ${methodLabel}. Harga jual: ${rupiah(
           Number(data.selling_price)
-        )}`
+        )}. Stok sekarang: ${Number(data.stock_quantity).toLocaleString(
+          "id-ID"
+        )} unit.`
       );
 
-      setPercentages((old) => {
+      setProfitSettings((old) => {
         const next = { ...old };
         delete next[intake.id];
         return next;
@@ -247,7 +295,7 @@ const displayedIntakes = intakes;
             <ShieldCheck size={28} />
           </div>
           <h1>Akses dibatasi</h1>
-          <p>{error || "Halaman ini hanya untuk admin aktif."}</p>
+          <p>{error || "Halaman ini hanya untuk pemilik atau admin aktif."}</p>
           <button
             className="price-button price-button-primary"
             onClick={() => void loadData()}
@@ -380,8 +428,8 @@ const displayedIntakes = intakes;
               </div>
               <h2>Barang Menunggu Harga</h2>
               <p>
-                Tentukan persentase keuntungan untuk setiap barang secara
-                individual.
+                Tentukan keuntungan untuk setiap barang menggunakan
+                persentase atau nominal rupiah.
               </p>
             </div>
 
@@ -390,7 +438,6 @@ const displayedIntakes = intakes;
               {intakes.length} menunggu
             </span>
           </div>
-
 
           {/* EMPTY */}
           {intakes.length === 0 ? (
@@ -403,32 +450,30 @@ const displayedIntakes = intakes;
                 Belum ada barang kulakan yang menunggu persetujuan harga.
               </p>
             </div>
-          ) : displayedIntakes.length === 0 ? (
-            <div className="price-empty price-empty-small">
-              <Search size={26} />
-              <h3>Barang tidak ditemukan</h3>
-              <p>Coba gunakan kata kunci nama barang atau merek lainnya.</p>
-            </div>
           ) : (
             <div className="price-list">
-              {displayedIntakes.map((intake) => {
+              {intakes.map((intake) => {
                 const product = productMap.get(intake.product_id);
-                const rawPercentage = percentages[intake.id] ?? "";
-                const percentage = Number(rawPercentage);
+                const setting = getSetting(intake.id);
 
-                const hasPercentage =
-                  rawPercentage.trim() !== "" &&
-                  Number.isFinite(percentage) &&
-                  percentage >= 0 &&
-                  percentage <= 1000;
+                const rawValue = setting.value;
+                const profitValue = Number(rawValue);
+
+                const hasValue =
+                  rawValue.trim() !== "" &&
+                  Number.isFinite(profitValue) &&
+                  profitValue >= 0 &&
+                  (setting.type !== "percent" || profitValue <= 1000);
 
                 const purchasePrice = Number(intake.purchase_price || 0);
                 const quantity = Number(intake.quantity_received || 0);
 
-                const estimatedPrice = hasPercentage
-                  ? Math.round(
-                      purchasePrice * (1 + percentage / 100)
-                    )
+                const estimatedPrice = hasValue
+                  ? setting.type === "percent"
+                    ? Math.round(
+                        purchasePrice * (1 + profitValue / 100)
+                      )
+                    : Math.round(purchasePrice + profitValue)
                   : null;
 
                 const profit =
@@ -473,7 +518,9 @@ const displayedIntakes = intakes;
 
                       <div className="price-detail">
                         <span>Jumlah kulakan</span>
-                        <strong>{quantity.toLocaleString("id-ID")} unit</strong>
+                        <strong>
+                          {quantity.toLocaleString("id-ID")} unit
+                        </strong>
                       </div>
 
                       <div className="price-detail">
@@ -501,35 +548,95 @@ const displayedIntakes = intakes;
                           </div>
                           <div>
                             <h4>Tentukan Keuntungan</h4>
-                            <p>Markup berdasarkan harga kulakan terbaru.</p>
+                            <p>
+                              Pilih metode keuntungan untuk barang ini.
+                            </p>
                           </div>
                         </div>
 
-                        <label htmlFor={`percent-${intake.id}`}>
-                          Persentase keuntungan
+                        {/* PROFIT TYPE */}
+                        <div className="price-profit-type">
+                          <button
+                            type="button"
+                            className={
+                              setting.type === "percent"
+                                ? "price-profit-type-button active"
+                                : "price-profit-type-button"
+                            }
+                            onClick={() =>
+                              updateSetting(intake.id, {
+                                type: "percent",
+                                value: "",
+                              })
+                            }
+                            disabled={isBusy}
+                          >
+                            Persentase (%)
+                          </button>
+
+                          <button
+                            type="button"
+                            className={
+                              setting.type === "nominal"
+                                ? "price-profit-type-button active"
+                                : "price-profit-type-button"
+                            }
+                            onClick={() =>
+                              updateSetting(intake.id, {
+                                type: "nominal",
+                                value: "",
+                              })
+                            }
+                            disabled={isBusy}
+                          >
+                            Nominal (Rp)
+                          </button>
+                        </div>
+
+                        <label htmlFor={`profit-${intake.id}`}>
+                          {setting.type === "percent"
+                            ? "Persentase keuntungan"
+                            : "Nominal keuntungan per unit"}
                         </label>
 
                         <div className="price-percent-input">
+                          {setting.type === "nominal" && (
+                            <span>Rp</span>
+                          )}
+
                           <input
-                            id={`percent-${intake.id}`}
+                            id={`profit-${intake.id}`}
                             type="number"
                             min="0"
-                            max="1000"
-                            step="0.1"
-                            placeholder="Contoh: 20"
-                            value={rawPercentage}
-                            onChange={(e) =>
-                              setPercentages((old) => ({
-                                ...old,
-                                [intake.id]: e.target.value,
-                              }))
+                            max={
+                              setting.type === "percent"
+                                ? "1000"
+                                : "1000000000"
                             }
+                            step={
+                              setting.type === "percent" ? "0.1" : "100"
+                            }
+                            placeholder={
+                              setting.type === "percent"
+                                ? "Contoh: 20"
+                                : "Contoh: 5000"
+                            }
+                            value={rawValue}
+                            onChange={(e) =>
+                              updateSetting(intake.id, {
+                                value: e.target.value,
+                              })
+                            }
+                            disabled={isBusy}
                           />
-                          <span>%</span>
+
+                          {setting.type === "percent" && <span>%</span>}
                         </div>
 
                         <small>
-                          Persentase keuntungan ditentukan untuk barang ini.
+                          {setting.type === "percent"
+                            ? "Keuntungan dihitung berdasarkan persentase dari harga kulakan."
+                            : "Nominal keuntungan ditambahkan langsung ke harga kulakan setiap unit."}
                         </small>
                       </div>
 
@@ -554,6 +661,15 @@ const displayedIntakes = intakes;
                             {profit === null ? "—" : rupiah(profit)}
                           </strong>
                         </div>
+
+                        {estimatedPrice !== null && (
+                          <div className="price-preview-profit">
+                            <span>Keuntungan seluruh kulakan</span>
+                            <strong>
+                              {rupiah(profitValue >= 0 ? profit! * quantity : 0)}
+                            </strong>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -561,7 +677,7 @@ const displayedIntakes = intakes;
                     <div className="price-item-footer">
                       <div className="price-item-note">
                         <AlertCircle size={15} />
-                        Harga jual akan diterapkan setelah disetujui.
+                        Harga jual dan stok diperbarui setelah disetujui.
                       </div>
 
                       <button
@@ -569,7 +685,7 @@ const displayedIntakes = intakes;
                         className="price-button price-approve-button"
                         disabled={
                           busyId !== "" ||
-                          !hasPercentage ||
+                          !hasValue ||
                           purchasePrice <= 0 ||
                           !product
                         }

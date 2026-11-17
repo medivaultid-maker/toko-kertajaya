@@ -15,7 +15,6 @@ import {
   Users,
   Banknote,
   History,
-  Search,
   ChevronDown,
   Info,
   CreditCard,
@@ -117,9 +116,6 @@ export default function EmployeePayrollManagement() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-
 const [selectedHistoryStart, setSelectedHistoryStart] = useState<string | null>(null);
   const periods = useMemo(() => {
     const result: Period[] = [];
@@ -136,8 +132,24 @@ const [selectedHistoryStart, setSelectedHistoryStart] = useState<string | null>(
     return result;
   }, []);
 
+  // OTOMATIS MEMILIH PERIODE BERJALAN
+useEffect(() => {
+  const now = new Date();
+
+  const today =
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+  const currentPeriod = periods.find(
+    (period) => today >= period.start && today <= period.end
+  );
+
+  if (currentPeriod) {
+    setSelectedStart(currentPeriod.start);
+  }
+}, [periods]);
+
   const selectedPeriod =
-    periods.find((period) => period.start === selectedStart) ?? periods[0];
+  periods.find((period) => period.start === selectedStart) ?? periods[0];
 
   const today = jakartaToday();
   const paymentDate = addDays(selectedPeriod.end, 1);
@@ -251,32 +263,6 @@ const [selectedHistoryStart, setSelectedHistoryStart] = useState<string | null>(
     return total + afterAbsence - Math.min(debt, afterAbsence);
   }, 0);
 
-  const totalGrossSalary = employees.reduce((total, employee) => {
-    const payroll = payrollByEmployee.get(employee.id);
-    return total + Number(payroll?.gross_salary ?? employee.weekly_wage);
-  }, 0);
-
-  const totalOutstandingDebt = employees.reduce((total, employee) => {
-    return total + (totalDebtByEmployee[employee.id] || 0);
-  }, 0);
-
- const filteredEmployees = employees.filter((employee) => {
-  const payroll = payrollByEmployee.get(employee.id);
-
-  const matchesSearch =
-    employee.full_name.toLowerCase().includes(search.toLowerCase()) ||
-    (employee.employee_code || "")
-      .toLowerCase()
-      .includes(search.toLowerCase());
-
-  const matchesStatus =
-    statusFilter === "all" ||
-    (statusFilter === "paid" && payroll?.payment_status === "paid") ||
-    (statusFilter === "draft" && payroll?.payment_status === "draft") ||
-    (statusFilter === "not-calculated" && !payroll);
-
-  return matchesSearch && matchesStatus;
-});
 
   // RIWAYAT PENGGAJIAN PER PERIODE
 const historyPeriods = useMemo(() => {
@@ -591,7 +577,7 @@ const selectedHistoryPeriod = historyPeriods.find(
         .overview-card {
           position: relative;
           display: grid;
-          grid-template-columns: 1.3fr 1fr;
+          grid-template-columns: 1fr;
           gap: 24px;
           overflow: hidden;
           margin-bottom: 18px;
@@ -2075,25 +2061,6 @@ const selectedHistoryPeriod = historyPeriods.find(
         }
 `}</style>
 
-      {/* HEADER */}
-      <header className="page-header">
-        <div>
-          <div className="eyebrow">
-          
-            MANAJEMEN KEUANGAN KARYAWAN
-          </div>
-
-          <h1 className="page-title">Gaji Mingguan</h1>
-
-          <p className="page-description">
-            Kelola penggajian, potongan, piutang, dan pembayaran karyawan.
-          </p>
-
-       
-        </div>
-
-      </header>
-
       {/* NOTIFICATIONS */}
       {error && (
         <div className="notice error">
@@ -2127,60 +2094,6 @@ const selectedHistoryPeriod = historyPeriods.find(
           </p>
         </div>
 
-        <div className="overview-side">
-          <div className="overview-mini">
-            <div className="overview-mini-label">Total gaji kotor</div>
-            <div className="overview-mini-value">
-              {rupiah(totalGrossSalary)}
-            </div>
-            <div className="overview-mini-note">Sebelum potongan</div>
-          </div>
-
-          <div className="overview-mini">
-            <div className="overview-mini-label">Total sisa piutang</div>
-            <div className="overview-mini-value">
-              {rupiah(totalOutstandingDebt)}
-            </div>
-            <div className="overview-mini-note">Seluruh karyawan aktif</div>
-          </div>
-        </div>
-      </section>
-
-      {/* SUMMARY CARDS */}
-      <section className="stats-grid">
-        <StatCard
-          icon={<Users size={17} />}
-          label="Karyawan Aktif"
-          value={String(employees.length)}
-          note="Total karyawan aktif"
-          tone="green"
-        />
-
-        <StatCard
-          icon={<Clock size={17} />}
-          label="Menunggu Bayar"
-          value={String(draftCount)}
-          note="Gaji masih berstatus draft"
-          tone="gold"
-        />
-
-        <StatCard
-          icon={<CheckCircle2 size={17} />}
-          label="Sudah Dibayar"
-          value={String(paidCount)}
-          note="Pembayaran berhasil"
-          tone="green"
-        />
-
-        <StatCard
-          icon={<CalendarCheck size={17} />}
-          label="Belum Dihitung"
-          value={String(
-            Math.max(0, employees.length - currentPayrolls.length)
-          )}
-          note="Belum masuk penggajian"
-          tone="gray"
-        />
       </section>
 
       {/* PERIOD */}
@@ -2248,246 +2161,26 @@ const selectedHistoryPeriod = historyPeriods.find(
           </div>
 
           <button
-            type="button"
-            onClick={() => void generatePayroll()}
-            disabled={
-              loading ||
-              processing ||
-              !canProcess ||
-              employees.length === 0
-            }
-            className="primary-btn"
-          >
-            <Calculator size={15} />
-            {processing ? "Menghitung..." : "Hitung Gaji"}
-          </button>
+  type="button"
+  onClick={() => void generatePayroll()}
+  disabled={
+    loading ||
+    processing ||
+    !canProcess ||
+    employees.length === 0 ||
+    currentPayrolls.length > 0
+  }
+  className="primary-btn"
+>
+  <Calculator size={15} />
+  {processing
+    ? "Menghitung..."
+    : currentPayrolls.length > 0
+      ? "Gaji Sudah Dihitung"
+      : "Hitung Gaji"}
+</button>
         </div>
       </section>
-
-      {/* EMPLOYEE LIST */}
-      <section className="panel">
-        <div className="panel-header">
-          <div className="panel-heading">
-            <div className="panel-icon">
-              <Users size={17} />
-            </div>
-
-            <div>
-              <h2 className="panel-title">Rincian Gaji Karyawan</h2>
-              <p className="panel-subtitle">
-                Periode {formatDate(selectedPeriod.start)} –{" "}
-                {formatDate(selectedPeriod.end)}
-              </p>
-            </div>
-          </div>
-
-          <span className="employee-count">
-            {filteredEmployees.length} Karyawan
-          </span>
-        </div>
-
-        {/* SEARCH AND FILTER */}
-        <div className="employee-toolbar">
-          <div className="toolbar-search">
-          
-
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Cari nama atau kode karyawan..."
-              className="search-field"
-            />
-          </div>
-
-          <div className="filter-wrap">
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className="filter-field"
-            >
-              <option value="all">Semua status</option>
-              <option value="paid">Sudah dibayar</option>
-              <option value="draft">Menunggu pembayaran</option>
-              <option value="not-calculated">Belum dihitung</option>
-            </select>
-
-        
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="empty-state">
-            <RefreshCw
-              size={23}
-              className="mx-auto mb-3 animate-spin"
-            />
-            Memuat data penggajian...
-          </div>
-        ) : employees.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">
-              <Users size={20} />
-            </div>
-            Belum ada karyawan aktif.
-          </div>
-        ) : filteredEmployees.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">
-              <Search size={20} />
-            </div>
-            Tidak ada karyawan yang sesuai dengan pencarian.
-          </div>
-        ) : (
-          <div className="employee-list">
-            {filteredEmployees.map((employee) => {
-              const payroll = payrollByEmployee.get(employee.id);
-              const debt = totalDebtByEmployee[employee.id] || 0;
-
-              const absentDays = payroll?.absent_days ?? 0;
-
-              const absenceDeduction =
-                payroll?.absence_deduction ??
-                Math.round(
-                  (Number(employee.weekly_wage) * absentDays) / 7 * 100
-                ) / 100;
-
-              const grossSalary =
-                payroll?.gross_salary ?? Number(employee.weekly_wage);
-
-              const salaryAfterAbsence = Math.max(
-                0,
-                grossSalary - absenceDeduction
-              );
-
-              const debtDeduction =
-                payroll?.payment_status === "paid"
-                  ? payroll.debt_deduction
-                  : Math.min(debt, salaryAfterAbsence);
-
-              const netSalary =
-                payroll?.payment_status === "paid"
-                  ? payroll.net_salary
-                  : salaryAfterAbsence - debtDeduction;
-
-              return (
-                <article key={employee.id} className="employee-card">
-                  <div className="employee-top">
-                    <div className="employee-identity">
-                      <div className="employee-avatar">
-                        <UserRound size={19} />
-                      </div>
-
-                      <div>
-                        <div className="employee-name">
-                          {employee.full_name}
-                        </div>
-
-                        <div className="employee-code">
-                          {employee.employee_code || "Tanpa kode karyawan"}
-                        </div>
-                      </div>
-                    </div>
-
-                    {payroll ? (
-                      payroll.payment_status === "paid" ? (
-                        <StatusBadge tone="green">
-                          <CheckCircle2 size={12} />
-                          Sudah dibayar
-                        </StatusBadge>
-                      ) : (
-                        <StatusBadge tone="gold">
-                          <Clock size={12} />
-                          Menunggu pembayaran
-                        </StatusBadge>
-                      )
-                    ) : (
-                      <StatusBadge tone="gray">
-                        Belum dihitung
-                      </StatusBadge>
-                    )}
-                  </div>
-
-                  <div className="employee-details">
-                    <Detail
-                      label="Gaji mingguan"
-                      value={rupiah(grossSalary)}
-                    />
-
-                    <Detail
-                      label="Tidak hadir"
-                      value={`${absentDays} / 7 hari`}
-                    />
-
-                    <Detail
-                      label="Potongan absen"
-                      value={rupiah(absenceDeduction)}
-                      negative
-                    />
-
-                    <Detail
-                      label="Sisa piutang"
-                      value={rupiah(debt)}
-                    />
-
-                    <Detail
-                      label="Potongan piutang"
-                      value={rupiah(debtDeduction)}
-                      negative
-                    />
-
-                    <Detail
-                      label="Gaji bersih"
-                      value={rupiah(netSalary)}
-                      highlight
-                    />
-                  </div>
-
-                  {payroll?.payment_status === "paid" ? (
-                    <div className="paid-info">
-                      <CheckCircle2 size={14} />
-                      Pembayaran berhasil pada {formatPaidAt(payroll.paid_at)}
-                    </div>
-                  ) : payroll ? (
-                    <div className="employee-footer">
-                      <div className="employee-note">
-                        <Info size={14} />
-                        <span>
-                          Potongan piutang masih berupa estimasi.
-                          Saldo piutang baru dikurangi setelah pembayaran berhasil.
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => void payEmployee(payroll)}
-                        disabled={!canProcess || payingId !== ""}
-                        className="primary-btn"
-                      >
-                        <CreditCard size={14} />
-                        {payingId === payroll.id
-                          ? "Memproses..."
-                          : "Bayar karyawan"}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="employee-footer">
-                      <div className="employee-note">
-                        <Info size={14} />
-                        <span>
-                          Karyawan ini akan masuk ke daftar penggajian setelah
-                          tombol Hitung Gaji digunakan.
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-
 
      {/* HISTORY */}
 <section className="panel history-panel">

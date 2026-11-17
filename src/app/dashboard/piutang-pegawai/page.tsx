@@ -31,7 +31,6 @@ type DebtSummary = {
   full_name: string;
   debt_count: number;
   original_total: number;
-  remaining_total: number;
 };
 
 type DebtRecord = {
@@ -171,11 +170,6 @@ export default function EmployeeDebtManagement() {
     0
   );
 
-  const grandRemainingTotal = debtSummaries.reduce(
-    (sum, employee) => sum + employee.remaining_total,
-    0
-  );
-
   // ==========================================
   // LOAD RINGKASAN PIUTANG
   // ==========================================
@@ -206,20 +200,14 @@ export default function EmployeeDebtManagement() {
           );
 
           return {
-            id: employee.id,
-            full_name: employee.full_name,
-            debt_count: debts.length,
-            original_total: debts.reduce(
-              (sum, debt) =>
-                sum + Number(debt.original_amount || 0),
-              0
-            ),
-            remaining_total: debts.reduce(
-              (sum, debt) =>
-                sum + Number(debt.remaining_amount || 0),
-              0
-            ),
-          };
+  id: employee.id,
+  full_name: employee.full_name,
+  debt_count: debts.length,
+  original_total: debts.reduce(
+    (sum, debt) => sum + Number(debt.original_amount || 0),
+    0
+  ),
+};
         })
         .filter((employee) => employee.debt_count > 0)
         .sort((a, b) => a.full_name.localeCompare(b.full_name));
@@ -1932,17 +1920,12 @@ export default function EmployeeDebtManagement() {
             </div>
           </div>
 
-          <div className="debt-overview">
-            <div className="debt-overview-item">
-              <span>Total seluruh piutang awal</span>
-              <strong>{rupiah(grandOriginalTotal)}</strong>
-            </div>
-
-            <div className="debt-overview-item highlight">
-              <span>Total sisa piutang seluruh karyawan</span>
-              <strong>{rupiah(grandRemainingTotal)}</strong>
-            </div>
-          </div>
+         <div className="debt-overview">
+  <div className="debt-overview-item highlight">
+    <span>Total seluruh piutang karyawan</span>
+    <strong>{rupiah(grandOriginalTotal)}</strong>
+  </div>
+</div>
 
           {loadingDebts ? (
             <div className="empty">
@@ -1977,13 +1960,6 @@ export default function EmployeeDebtManagement() {
                     <small>
                       Total awal: {rupiah(employee.original_total)}
                     </small>
-                  </div>
-
-                  <div className="employee-debt-balance">
-                    <span>Sisa piutang</span>
-                    <strong>
-                      {rupiah(employee.remaining_total)}
-                    </strong>
                   </div>
 
                   <span className="employee-chevron">›</span>
@@ -2028,19 +2004,13 @@ export default function EmployeeDebtManagement() {
               </div>
 
               <div className="debt-detail-stats">
-                <div className="debt-detail-stat">
-                  <span>Total piutang awal</span>
-                  <strong>
-                    {rupiah(selectedEmployee.original_total)}
-                  </strong>
-                </div>
+  <div className="debt-detail-stat">
+    <span>Total piutang awal</span>
+    <strong>
+      {rupiah(selectedEmployee.original_total)}
+    </strong>
+  </div>
 
-                <div className="debt-detail-stat">
-                  <span>Sisa piutang</span>
-                  <strong>
-                    {rupiah(selectedEmployee.remaining_total)}
-                  </strong>
-                </div>
               </div>
 
               <div className="divider" />
@@ -2115,12 +2085,6 @@ export default function EmployeeDebtManagement() {
                             </strong>
                           </div>
 
-                          <div>
-                            <span>Sisa tagihan</span>
-                            <strong>
-                              {rupiah(Number(debt.remaining_amount))}
-                            </strong>
-                          </div>
                         </div>
 
                         <div className="debt-items">
