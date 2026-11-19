@@ -26,11 +26,14 @@ import {
   UserRound,
 } from "lucide-react";
 
+
 type Employee = {
   id: string;
   full_name: string;
   employee_code: string | null;
   weekly_wage: number;
+  morning_weekly_wage: number;
+  afternoon_weekly_wage: number;
 };
 
 type Payroll = {
@@ -41,17 +44,27 @@ type Payroll = {
   daily_wage_snapshot: number;
   scheduled_days: number;
   absent_days: number;
+
+  morning_weekly_wage_snapshot: number;
+  afternoon_weekly_wage_snapshot: number;
+  morning_absent_sessions: number;
+  afternoon_absent_sessions: number;
+  morning_absence_deduction: number;
+  afternoon_absence_deduction: number;
+
   gross_salary: number;
   absence_deduction: number;
   debt_deduction: number;
   net_salary: number;
   payment_status: "draft" | "paid";
   paid_at: string | null;
+
   employees: {
     full_name: string;
     employee_code: string | null;
   } | null;
 };
+
 
 type Debt = {
   employee_id: string;
@@ -162,7 +175,14 @@ useEffect(() => {
     const [employeeResult, payrollResult, debtResult] = await Promise.all([
       supabase
         .from("employees")
-        .select("id, full_name, employee_code, weekly_wage")
+.select(`
+  id,
+  full_name,
+  employee_code,
+  weekly_wage,
+  morning_weekly_wage,
+  afternoon_weekly_wage
+`)
         .eq("is_active", true)
         .order("full_name"),
 
@@ -248,21 +268,35 @@ useEffect(() => {
     (item) => item.payment_status === "draft"
   ).length;
 
-  const totalEstimatedSalary = employees.reduce((total, employee) => {
-    const payroll = payrollByEmployee.get(employee.id);
+ 
 
-    if (payroll?.payment_status === "paid") {
-      return total + Number(payroll.net_salary);
-    }
 
-    const gross = Number(payroll?.gross_salary ?? employee.weekly_wage);
-    const absence = Number(payroll?.absence_deduction ?? 0);
-    const afterAbsence = Math.max(0, gross - absence);
-    const debt = totalDebtByEmployee[employee.id] || 0;
+const totalEstimatedSalary = employees.reduce((total, employee) => {
+  const payroll = payrollByEmployee.get(employee.id);
 
-    return total + afterAbsence - Math.min(debt, afterAbsence);
-  }, 0);
+  if (payroll?.payment_status === "paid") {
+    return total + Number(payroll.net_salary || 0);
+  }
 
+  const morning = Number(employee.morning_weekly_wage || 0);
+  const afternoon = Number(employee.afternoon_weekly_wage || 0);
+
+  const sessionWage = morning + afternoon;
+
+  const defaultGross =
+    sessionWage > 0
+      ? sessionWage
+      : Number(employee.weekly_wage || 0) * 2;
+
+  const gross = Number(payroll?.gross_salary ?? defaultGross);
+  const absence = Number(payroll?.absence_deduction || 0);
+  const afterAbsence = Math.max(0, gross - absence);
+
+  const debt = Number(totalDebtByEmployee[employee.id] || 0);
+  const debtDeduction = Math.min(debt, afterAbsence);
+
+  return total + afterAbsence - debtDeduction;
+}, 0);
 
   // RIWAYAT PENGGAJIAN PER PERIODE
 const historyPeriods = useMemo(() => {
@@ -328,39 +362,85 @@ const selectedHistoryPeriod = historyPeriods.find(
   (period) => period.start === selectedHistoryStart
 );
 
-  async function generatePayroll() {
-    if (!canProcess) {
-      setError("Periode belum selesai. Penggajian belum dapat dibuat.");
-      return;
-    }
 
-    if (
-      !confirm(
-        `Hitung gaji seluruh karyawan untuk periode ${formatDate(
-          selectedPeriod.start
-        )} sampai ${formatDate(selectedPeriod.end)}?`
-      )
-    ) {
-      return;
-    }
+async function saveEmployeeWages(employee: Employee) {
+  setError("");
+  setSuccess("");
 
-    setProcessing(true);
-    setError("");
-    setSuccess("");
+  const morning = Number(employee.morning_weekly_wage);
+  const afternoon = Number(employee.afternoon_weekly_wage);
 
-    const { error } = await supabase.rpc("generate_employee_payrolls", {
-      p_week_start: selectedStart,
-    });
-
-    if (error) {
-      setError(`Gagal menghitung gaji: ${error.message}`);
-    } else {
-      setSuccess("Penggajian berhasil dihitung.");
-      await loadData();
-    }
-
-    setProcessing(false);
+  if (
+    !Number.isFinite(morning) ||
+    !Number.isFinite(afternoon) ||
+    morning < 0 ||
+    afternoon < 0
+  ) {
+    setError("Nominal gaji tidak boleh negatif atau tidak valid.");
+    return;
   }
+
+  setProcessing(true);
+
+  const { error } = await supabase
+    .from("employees")
+    .update({
+      morning_weekly_wage: morning,
+      afternoon_weekly_wage: afternoon,
+    })
+    .eq("id", employee.id);
+
+  if (error) {
+    setError(`Gagal menyimpan gaji ${employee.full_name}: ${error.message}`);
+  } else {
+    setSuccess(`Pengaturan gaji ${employee.full_name} berhasil disimpan.`);
+    await loadData();
+  }
+
+  setProcessing(false);
+}
+
+
+ 
+async function generatePayroll() {
+  if (!canProcess) {
+    setError("Periode belum selesai. Penggajian belum dapat dibuat.");
+    return;
+  }
+
+  if (currentPayrolls.length > 0) {
+    setError("Penggajian untuk periode ini sudah pernah dihitung.");
+    return;
+  }
+
+  if (
+    !confirm(
+      `Hitung gaji seluruh karyawan untuk periode ${formatDate(
+        selectedPeriod.start
+      )} sampai ${formatDate(selectedPeriod.end)}?`
+    )
+  ) {
+    return;
+  }
+
+  setProcessing(true);
+  setError("");
+  setSuccess("");
+
+  const { error } = await supabase.rpc("generate_employee_payrolls", {
+    p_week_start: selectedStart,
+  });
+
+  if (error) {
+    setError(`Gagal menghitung gaji: ${error.message}`);
+  } else {
+    setSuccess("Penggajian berhasil dihitung.");
+    await loadData();
+  }
+
+  setProcessing(false);
+}
+
 
   async function payEmployee(payroll: Payroll) {
     const employeeName = payroll.employees?.full_name || "Karyawan ini";
@@ -2096,6 +2176,7 @@ const selectedHistoryPeriod = historyPeriods.find(
 
       </section>
 
+
       {/* PERIOD */}
       <section className="panel">
         <div className="panel-header">
@@ -2319,14 +2400,68 @@ const selectedHistoryPeriod = historyPeriods.find(
                   )}
                 </div>
 
-                <div className="employee-details">
-                  <Detail label="Gaji mingguan" value={rupiah(grossSalary)} />
-                  <Detail label="Tidak hadir" value={`${absentDays} / ${Number(item.scheduled_days || 7)} hari`} />
-                  <Detail label="Potongan absen" value={rupiah(absenceDeduction)} negative />
-                  <Detail label="Sisa piutang" value={rupiah(remainingDebt)} />
-                  <Detail label="Potongan piutang" value={rupiah(debtDeduction)} negative />
-                  <Detail label="Gaji bersih" value={rupiah(netSalary)} highlight />
-                </div>
+                
+<div className="employee-details">
+  <Detail
+    label="Gaji sesi pagi"
+    value={rupiah(Number(item.morning_weekly_wage_snapshot || 0))}
+  />
+
+  <Detail
+    label="Gaji sesi siang"
+    value={rupiah(Number(item.afternoon_weekly_wage_snapshot || 0))}
+  />
+
+  <Detail
+    label="Absen pagi"
+    value={`${Number(item.morning_absent_sessions || 0)} / 7 sesi`}
+  />
+
+  <Detail
+    label="Absen siang"
+    value={`${Number(item.afternoon_absent_sessions || 0)} / 7 sesi`}
+  />
+
+  <Detail
+    label="Potongan pagi"
+    value={rupiah(Number(item.morning_absence_deduction || 0))}
+    negative
+  />
+
+  <Detail
+    label="Potongan siang"
+    value={rupiah(Number(item.afternoon_absence_deduction || 0))}
+    negative
+  />
+
+  <Detail
+    label="Total gaji kotor"
+    value={rupiah(grossSalary)}
+  />
+
+  <Detail
+    label="Total potongan absen"
+    value={rupiah(absenceDeduction)}
+    negative
+  />
+
+  <Detail
+    label="Sisa piutang"
+    value={rupiah(remainingDebt)}
+  />
+
+  <Detail
+    label="Potongan piutang"
+    value={rupiah(debtDeduction)}
+    negative
+  />
+
+  <Detail
+    label="Gaji bersih"
+    value={rupiah(netSalary)}
+    highlight
+  />
+</div>
 
                 {item.payment_status === "paid" ? (
                   <div className="paid-info">
