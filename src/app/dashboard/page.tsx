@@ -16,7 +16,7 @@ import RiwayatPenjualanPage from "./riwayat-penjualan/page";
 import LabaRugiPage from "./laporan-laba-rugi/page";
 import EmployeeDebtManagement from "./piutang-pegawai/page";
 import EmployeeManagement from "./data-pegawai/page";
-import ProductManagement from "./barang-stock/page";
+import ProductManagement from "./barang-stock/ProductManagement";
 import EmployeeAccountManagement from "./akun-pegawai/page";
 import AttendancePage from "./kehadiran/page";
 import EmployeePayrollManagement from "./gaji-pegawai/page";
