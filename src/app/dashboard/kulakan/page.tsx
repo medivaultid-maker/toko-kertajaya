@@ -1740,8 +1740,8 @@ export default function KulakanPage() {
                   <input
                     className="input with-icon"
                     type="number"
-                    min="0.001"
-                    step={item.mode === "coded" ? "1" : "0.001"}
+                    min="1"
+                    step={item.mode === "coded" ? "1" : "1"}
                     value={item.quantity}
                     onChange={(e) => update("quantity", e.target.value)}
                     placeholder={

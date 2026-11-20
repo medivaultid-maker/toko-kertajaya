@@ -27,6 +27,14 @@ type DraftProduct = {
 
 type ProductFilter = "all" | "approved" | "pending_price";
 type ProductListView = "active" | "inactive";
+type PriceHistory = {
+  id: string;
+  previous_selling_price: number | string | null;
+  selling_price: number | string;
+  effective_at: string;
+  profit_type: "percent" | "nominal";
+  profit_value: number | string;
+};
 
 const emptyDraft = (): DraftProduct => ({
   product_code: "",
@@ -52,6 +60,9 @@ export default function ProductManagement() {
   const [supabase] = useState(() => createClient());
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
+const [historyProduct, setHistoryProduct] = useState<Product | null>(null);
+const [loadingHistory, setLoadingHistory] = useState(false);
   const [drafts, setDrafts] = useState<DraftProduct[]>([emptyDraft()]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<DraftProduct>(emptyDraft());
@@ -67,6 +78,35 @@ export default function ProductManagement() {
 
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  const loadPriceHistory = async (product: Product) => {
+  setHistoryProduct(product);
+  setPriceHistory([]);
+  setLoadingHistory(true);
+
+  try {
+    const { data, error } = await supabase
+      .from("product_price_history")
+      .select(
+        "id, previous_selling_price, selling_price, effective_at, profit_type, profit_value"
+      )
+      .eq("product_id", product.id)
+      .order("effective_at", { ascending: false });
+
+    if (error) throw error;
+
+    setPriceHistory((data || []) as PriceHistory[]);
+  } catch (error) {
+    console.error("Gagal memuat riwayat harga:", error);
+    setError(
+      error instanceof Error
+        ? error.message
+        : "Gagal memuat riwayat harga."
+    );
+  } finally {
+    setLoadingHistory(false);
+  }
+};
 
   // =====================================================
   // MEMUAT PRODUK
@@ -1789,6 +1829,13 @@ const loadProducts = useCallback(async () => {
                       <div className="action-buttons">
                         {listView === "active" ? (
                           <>
+                           <button
+  type="button"
+  className="edit-button"
+  onClick={() => void loadPriceHistory(product)}
+>
+  ↗ Riwayat Harga
+</button>
                             <button
                               type="button"
                               className="edit-button"
@@ -1999,6 +2046,114 @@ const loadProducts = useCallback(async () => {
                 </button>
               </div>
             </form>
+          </section>
+        </div>
+      )}
+            {/* MODAL RIWAYAT HARGA */}
+      {historyProduct && (
+        <div
+          className="modal-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setHistoryProduct(null);
+            }
+          }}
+        >
+          <section
+            className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="history-modal-title"
+          >
+            <div className="modal-header">
+              <div>
+                <div className="modal-eyebrow">RIWAYAT PERUBAHAN HARGA</div>
+                <h2 className="modal-title" id="history-modal-title">
+                  {historyProduct.name}
+                </h2>
+                <p className="modal-description">
+                  {historyProduct.brand || "Tanpa merek"}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setHistoryProduct(null)}
+                aria-label="Tutup"
+              >
+                ×
+              </button>
+            </div>
+
+            <div>
+              {loadingHistory ? (
+                <p>Memuat riwayat harga...</p>
+              ) : priceHistory.length === 0 ? (
+                <p>Belum ada riwayat perubahan harga untuk barang ini.</p>
+              ) : (
+                <div style={{ display: "grid", gap: 14 }}>
+                  {priceHistory.map((item) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        padding: 16,
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "#64748b",
+                          marginBottom: 10,
+                        }}
+                      >
+                        {new Date(item.effective_at).toLocaleString("id-ID")}
+                      </div>
+
+                      <div style={{ marginBottom: 8 }}>
+                        <span>Harga sebelumnya: </span>
+                        <strong>
+                          {item.previous_selling_price == null
+                            ? "Belum ada"
+                            : `Rp ${Number(
+                                item.previous_selling_price
+                              ).toLocaleString("id-ID")}`}
+                        </strong>
+                      </div>
+
+                      <div style={{ marginBottom: 8 }}>
+                        <span>Harga jual baru: </span>
+                        <strong style={{ color: "#16834a" }}>
+                          Rp{" "}
+                          {Number(item.selling_price).toLocaleString("id-ID")}
+                        </strong>
+                      </div>
+
+                      <div style={{ fontSize: 13, color: "#64748b" }}>
+                        Keuntungan:{" "}
+                        {item.profit_type === "percent"
+                          ? `${Number(item.profit_value)}%`
+                          : `Rp ${Number(item.profit_value).toLocaleString(
+                              "id-ID"
+                            )}`}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => setHistoryProduct(null)}
+              >
+                Tutup
+              </button>
+            </div>
           </section>
         </div>
       )}

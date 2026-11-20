@@ -24,11 +24,17 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+
 type Intake = {
   id: string;
-  product_id: string;
+  kind: "coded" | "loose";
+  product_id: string | null;
+  product_name: string;
+  brand: string;
+  unit: string;
+  supplier_name: string;
   purchase_date: string;
-  quantity_received: number;
+  quantity: number;
   purchase_price: number;
   created_at: string;
 };
@@ -37,6 +43,7 @@ type Product = {
   id: string;
   name: string;
   brand: string;
+  unit: string;
 };
 
 type ProfitType = "percent" | "nominal";
@@ -45,6 +52,7 @@ type ProfitSetting = {
   type: ProfitType;
   value: string;
 };
+
 
 const rupiah = (value: number) =>
   new Intl.NumberFormat("id-ID", {
@@ -63,8 +71,16 @@ const dateFormat = (value: string) =>
 export default function HargaPage() {
   const [supabase] = useState(() => createClient());
 
-  const [intakes, setIntakes] = useState<Intake[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+ const [intakes, setIntakes] = useState<Intake[]>([]);
+const [products, setProducts] = useState<Product[]>([]);
+
+const [looseProductChoices, setLooseProductChoices] = useState<
+  Record<string, string>
+>({});
+
+const [looseNewBrands, setLooseNewBrands] = useState<
+  Record<string, string>
+>({});
 
   const [profitSettings, setProfitSettings] = useState<
     Record<string, ProfitSetting>
@@ -82,18 +98,20 @@ export default function HargaPage() {
     [products]
   );
 
-  const totalUnits = intakes.reduce(
-    (total, item) => total + Number(item.quantity_received || 0),
-    0
-  );
+ 
+const totalUnits = intakes.reduce(
+  (total, item) => total + Number(item.quantity || 0),
+  0
+);
 
-  const totalCapital = intakes.reduce(
-    (total, item) =>
-      total +
-      Number(item.quantity_received || 0) *
-        Number(item.purchase_price || 0),
-    0
-  );
+const totalCapital = intakes.reduce(
+  (total, item) =>
+    total +
+    Number(item.quantity || 0) *
+      Number(item.purchase_price || 0),
+  0
+);
+
 
   const getSetting = (intakeId: string): ProfitSetting =>
     profitSettings[intakeId] || {
@@ -114,124 +132,226 @@ export default function HargaPage() {
     }));
   };
 
-  const loadData = useCallback(
-    async (showLoading = true) => {
-      if (showLoading) setLoading(true);
+  
+const loadData = useCallback(
+  async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    setError("");
 
-      setError("");
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-      try {
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
+      if (authError) throw new Error(authError.message);
 
-        if (authError) throw new Error(authError.message);
+      if (!user) {
+        window.location.replace("/login");
+        return;
+      }
 
-        if (!user) {
-          window.location.replace("/login");
-          return;
-        }
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role, is_active")
+        .eq("id", user.id)
+        .maybeSingle();
 
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("role, is_active")
-          .eq("id", user.id)
-          .maybeSingle();
+      if (profileError) throw new Error(profileError.message);
 
-        if (profileError) throw new Error(profileError.message);
+      if (!profile) {
+        setIsAdmin(false);
+        throw new Error("Profil pengguna tidak ditemukan.");
+      }
 
-        if (!profile) {
-          setIsAdmin(false);
-          throw new Error("Profil pengguna tidak ditemukan.");
-        }
+      if (
+        !["admin", "owner"].includes(profile.role) ||
+        profile.is_active !== true
+      ) {
+        setIsAdmin(false);
+        throw new Error("Akses hanya untuk pemilik atau admin aktif.");
+      }
 
-        if (
-          !["admin", "owner"].includes(profile.role) ||
-          profile.is_active !== true
-        ) {
-          setIsAdmin(false);
-          throw new Error("Akses hanya untuk pemilik atau admin aktif.");
-        }
+      setIsAdmin(true);
+      console.log("DEBUG ROLE PENGGUNA:", profile.role);
 
-        setIsAdmin(true);
-
-        const [intakesResult, productsResult] = await Promise.all([
+      const [codedResult, looseResult, productsResult] =
+        await Promise.all([
           supabase
             .from("purchase_intakes")
             .select(
-              "id,product_id,purchase_date,quantity_received,purchase_price,created_at"
+              "id, product_id, purchase_date, quantity_received, purchase_price, created_at"
             )
             .eq("status", "pending_price")
             .order("created_at", { ascending: true }),
 
-          supabase.from("products").select("id,name,brand"),
+          supabase
+            .from("loose_purchase_intakes")
+            .select(
+              "id, purchase_date, product_name, supplier_name, quantity, unit, purchase_price, created_at"
+            )
+            .eq("status", "pending_price")
+            .order("created_at", { ascending: true }),
+
+          supabase
+            .from("products")
+            .select("id, name, brand, unit"),
         ]);
 
-        if (intakesResult.error) {
-          throw new Error(intakesResult.error.message);
-        }
+      if (codedResult.error) throw codedResult.error;
+      if (looseResult.error) throw looseResult.error;
+      if (productsResult.error) throw productsResult.error;
+      console.log("DEBUG KULAKAN BERKODE:", codedResult.data);
+console.log("DEBUG ERROR KULAKAN:", codedResult.error);
+console.log("DEBUG PRODUK:", productsResult.data);
 
-        if (productsResult.error) {
-          throw new Error(productsResult.error.message);
-        }
+      const productData = (productsResult.data || []) as Product[];
+      setProducts(productData);
 
-        setIntakes((intakesResult.data || []) as Intake[]);
-        setProducts((productsResult.data || []) as Product[]);
-      } catch (e) {
-        setError(
-          e instanceof Error
-            ? e.message
-            : "Terjadi kesalahan saat memuat data."
-        );
-      } finally {
-        if (showLoading) setLoading(false);
-      }
-    },
-    [supabase]
-  );
+      const productLookup = new Map(
+        productData.map((product) => [product.id, product])
+      );
+
+      const codedIntakes: Intake[] = (codedResult.data || []).map((item) => {
+        const product = productLookup.get(item.product_id);
+
+        return {
+          id: item.id,
+          kind: "coded",
+          product_id: item.product_id,
+          product_name: product?.name || "Produk tidak ditemukan",
+          brand: product?.brand || "",
+          unit: product?.unit || "",
+          supplier_name: "",
+          purchase_date: item.purchase_date,
+          quantity: Number(item.quantity_received || 0),
+          purchase_price: Number(item.purchase_price || 0),
+          created_at: item.created_at,
+        };
+      });
+
+      const looseIntakes: Intake[] = (looseResult.data || []).map((item) => ({
+        id: item.id,
+        kind: "loose",
+        product_id: null,
+        product_name: item.product_name,
+        brand: "",
+        unit: item.unit,
+        supplier_name: item.supplier_name || "",
+        purchase_date: item.purchase_date,
+        quantity: Number(item.quantity || 0),
+        purchase_price: Number(item.purchase_price || 0),
+        created_at: item.created_at,
+      }));
+
+      const combinedIntakes = [...codedIntakes, ...looseIntakes].sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() -
+          new Date(b.created_at).getTime()
+      );
+
+      setIntakes(combinedIntakes);
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Terjadi kesalahan saat memuat data."
+      );
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  },
+  [supabase]
+);
+
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
 
-  async function approve(intake: Intake) {
-    const setting = getSetting(intake.id);
-    const rawValue = setting.value;
+ 
+async function approve(intake: Intake) {
+  const setting = getSetting(intake.id);
+  const rawValue = setting.value;
 
-    if (rawValue.trim() === "") {
-      setError("Masukkan nilai keuntungan terlebih dahulu.");
+  if (rawValue.trim() === "") {
+    setError("Masukkan nilai keuntungan terlebih dahulu.");
+    return;
+  }
+
+  const profitValue = Number(rawValue);
+
+  if (!Number.isFinite(profitValue) || profitValue < 0) {
+    setError("Nilai keuntungan harus berupa angka nol atau lebih.");
+    return;
+  }
+
+  if (setting.type === "percent" && profitValue > 1000) {
+    setError("Persentase keuntungan maksimal 1000%.");
+    return;
+  }
+
+  if (setting.type === "nominal" && profitValue > 1000000000) {
+    setError("Nominal keuntungan terlalu besar.");
+    return;
+  }
+
+  if (Number(intake.purchase_price) <= 0) {
+    setError("Harga kulakan harus lebih besar dari nol.");
+    return;
+  }
+
+  // Validasi khusus kulakan curah
+  let selectedProduct: Product | undefined;
+  let createNewProduct = false;
+
+  if (intake.kind === "loose") {
+    const selectedId = looseProductChoices[intake.id];
+
+    if (!selectedId) {
+      setError("Pilih produk tujuan atau pilih buat produk baru.");
       return;
     }
 
-    const profitValue = Number(rawValue);
+    createNewProduct = selectedId === "__new__";
 
-    if (!Number.isFinite(profitValue) || profitValue < 0) {
-      setError("Nilai keuntungan harus berupa angka nol atau lebih.");
-      return;
+    if (!createNewProduct) {
+      selectedProduct = products.find(
+        (product) => product.id === selectedId
+      );
+
+      if (!selectedProduct) {
+        setError("Produk yang dipilih tidak ditemukan.");
+        return;
+      }
+
+      if (
+        selectedProduct.unit.trim().toLowerCase() !==
+        intake.unit.trim().toLowerCase()
+      ) {
+        setError(
+          `Satuan produk ${selectedProduct.name} (${selectedProduct.unit}) tidak cocok dengan satuan kulakan (${intake.unit}).`
+        );
+        return;
+      }
     }
+  }
 
-    if (setting.type === "percent" && profitValue > 1000) {
-      setError("Persentase keuntungan maksimal 1000%.");
-      return;
-    }
+  if (intake.kind === "coded" && !intake.product_id) {
+    setError("Produk kulakan tidak ditemukan.");
+    return;
+  }
 
-    if (setting.type === "nominal" && profitValue > 1000000000) {
-      setError("Nominal keuntungan terlalu besar.");
-      return;
-    }
+  setBusyId(intake.id);
+  setError("");
+  setMessage("");
 
-    if (Number(intake.purchase_price) <= 0) {
-      setError("Harga kulakan harus lebih besar dari nol.");
-      return;
-    }
+  try {
+    let data: any;
+    let rpcError: any;
 
-    setBusyId(intake.id);
-    setError("");
-    setMessage("");
-
-    try {
-      const { data, error: rpcError } = await supabase.rpc(
+    if (intake.kind === "coded") {
+      const result = await supabase.rpc(
         "finalize_purchase_intake",
         {
           p_intake_id: intake.id,
@@ -240,40 +360,77 @@ export default function HargaPage() {
         }
       );
 
-      if (rpcError) throw new Error(rpcError.message);
-
-      if (!data || data.success !== true) {
-        throw new Error("Persetujuan harga tidak berhasil.");
-      }
-
-      const methodLabel =
-        setting.type === "percent"
-          ? `${profitValue}%`
-          : rupiah(profitValue);
-
-      setMessage(
-        `Harga berhasil disetujui. Keuntungan ${methodLabel}. Harga jual: ${rupiah(
-          Number(data.selling_price)
-        )}. Stok sekarang: ${Number(data.stock_quantity).toLocaleString(
-          "id-ID"
-        )} unit.`
+      data = result.data;
+      rpcError = result.error;
+    } else {
+      const result = await supabase.rpc(
+        "finalize_loose_purchase_intake",
+        {
+          p_loose_intake_id: intake.id,
+          p_product_id: createNewProduct
+            ? null
+            : selectedProduct!.id,
+          p_create_new_product: createNewProduct,
+          p_new_brand: looseNewBrands[intake.id] || "",
+          p_profit_type: setting.type,
+          p_profit_value: profitValue,
+        }
       );
 
-      setProfitSettings((old) => {
-        const next = { ...old };
-        delete next[intake.id];
-        return next;
-      });
-
-      await loadData(false);
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Gagal menyetujui harga."
-      );
-    } finally {
-      setBusyId("");
+      data = result.data;
+      rpcError = result.error;
     }
+
+    if (rpcError) throw new Error(rpcError.message);
+
+    if (!data || data.success !== true) {
+      throw new Error(
+        data?.message || "Persetujuan harga tidak berhasil."
+      );
+    }
+
+    const methodLabel =
+      setting.type === "percent"
+        ? `${profitValue}%`
+        : rupiah(profitValue);
+
+    const stock = Number(data.stock_quantity || 0);
+
+    setMessage(
+      `Harga berhasil disetujui. Keuntungan ${methodLabel}. Harga jual: ${rupiah(
+        Number(data.selling_price)
+      )}. Stok sekarang: ${stock.toLocaleString("id-ID")} unit.`
+    );
+
+    setProfitSettings((old) => {
+      const next = { ...old };
+      delete next[intake.id];
+      return next;
+    });
+
+    setLooseProductChoices((old) => {
+      const next = { ...old };
+      delete next[intake.id];
+      return next;
+    });
+
+    setLooseNewBrands((old) => {
+      const next = { ...old };
+      delete next[intake.id];
+      return next;
+    });
+
+    await loadData(false);
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : "Gagal menyetujui harga."
+    );
+  } finally {
+    setBusyId("");
   }
+}
 
   if (loading) {
     return (
@@ -453,7 +610,9 @@ export default function HargaPage() {
           ) : (
             <div className="price-list">
               {intakes.map((intake) => {
-                const product = productMap.get(intake.product_id);
+                const product = intake.product_id
+  ? productMap.get(intake.product_id)
+  : undefined;
                 const setting = getSetting(intake.id);
 
                 const rawValue = setting.value;
@@ -466,7 +625,7 @@ export default function HargaPage() {
                   (setting.type !== "percent" || profitValue <= 1000);
 
                 const purchasePrice = Number(intake.purchase_price || 0);
-                const quantity = Number(intake.quantity_received || 0);
+                const quantity = Number(intake.quantity || 0);
 
                 const estimatedPrice = hasValue
                   ? setting.type === "percent"
@@ -495,11 +654,13 @@ export default function HargaPage() {
                           <span className="price-item-overline">
                             DETAIL BARANG KULAKAN
                           </span>
-                          <h3>{product?.name || "Barang tidak ditemukan"}</h3>
+                          <h3>{intake.product_name}</h3>
                           <p>
-                            <Tag size={13} />
-                            {product?.brand || "Merek tidak tersedia"}
-                          </p>
+  <Tag size={13} />
+  {intake.kind === "loose"
+    ? `Kulakan Curah${intake.supplier_name ? ` · ${intake.supplier_name}` : ""}`
+    : intake.brand || "Merek tidak tersedia"}
+</p>
                         </div>
                       </div>
 
@@ -538,6 +699,85 @@ export default function HargaPage() {
                         </strong>
                       </div>
                     </div>
+
+                    {/* PILIH PRODUK UNTUK KULAKAN CURAH */}
+{intake.kind === "loose" && (
+  <div style={{ marginBottom: 20 }}>
+    <label
+      htmlFor={`product-${intake.id}`}
+      style={{
+        display: "block",
+        fontWeight: 600,
+        marginBottom: 8,
+      }}
+    >
+      Hubungkan ke Barang
+    </label>
+
+    <select
+      id={`product-${intake.id}`}
+      value={looseProductChoices[intake.id] || ""}
+      onChange={(e) =>
+        setLooseProductChoices((old) => ({
+          ...old,
+          [intake.id]: e.target.value,
+        }))
+      }
+      disabled={isBusy}
+      style={{
+        width: "100%",
+        padding: 12,
+        borderRadius: 10,
+        border: "1px solid #d1d5db",
+      }}
+    >
+      <option value="">-- Pilih barang --</option>
+
+      {products.map((item) => (
+        <option key={item.id} value={item.id}>
+          {item.name} — {item.brand || "Tanpa merek"} — {item.unit}
+        </option>
+      ))}
+
+      <option value="__new__">+ Buat Barang Baru</option>
+    </select>
+
+    {looseProductChoices[intake.id] === "__new__" && (
+      <div style={{ marginTop: 12 }}>
+        <label
+          htmlFor={`brand-${intake.id}`}
+          style={{
+            display: "block",
+            fontWeight: 600,
+            marginBottom: 8,
+          }}
+        >
+          Merek Barang Baru
+        </label>
+
+        <input
+          id={`brand-${intake.id}`}
+          type="text"
+          placeholder="Masukkan merek barang"
+          value={looseNewBrands[intake.id] || ""}
+          onChange={(e) =>
+            setLooseNewBrands((old) => ({
+              ...old,
+              [intake.id]: e.target.value,
+            }))
+          }
+          disabled={isBusy}
+          style={{
+            width: "100%",
+            padding: 12,
+            borderRadius: 10,
+            border: "1px solid #d1d5db",
+          }}
+        />
+      </div>
+    )}
+  </div>
+)}
 
                     {/* PRICE SETTING */}
                     <div className="price-setting-grid">
