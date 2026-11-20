@@ -52,6 +52,12 @@ type ProfitSetting = {
   type: ProfitType;
   value: string;
 };
+type FinalizeResult = {
+  success?: boolean;
+  message?: string;
+  stock_quantity?: number | string | null;
+  selling_price?: number | string | null;
+};
 
 
 const rupiah = (value: number) =>
@@ -347,8 +353,9 @@ async function approve(intake: Intake) {
   setMessage("");
 
   try {
-    let data: any;
-    let rpcError: any;
+   let data: FinalizeResult | null = null;
+let rpcError: { message: string } | null = null;
+    
 
     if (intake.kind === "coded") {
       const result = await supabase.rpc(
@@ -360,7 +367,7 @@ async function approve(intake: Intake) {
         }
       );
 
-      data = result.data;
+      data = result.data as FinalizeResult | null;
       rpcError = result.error;
     } else {
       const result = await supabase.rpc(
