@@ -182,6 +182,7 @@ export default function Home() {
   const [supabase] = useState(() => createClient());
 
   const [active, setActive] = useState<PageKey>("dashboard");
+  const [lowStockOnly, setLowStockOnly] = useState(false);
   const [activeRestored, setActiveRestored] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(false);
@@ -568,8 +569,13 @@ async function handleLogout() {
   router.refresh();
 }
 
-function handleMenuClick(key: PageKey) {
+function handleMenuClick(
+  key: PageKey,
+  showLowStock = false
+) {
   setActive(key);
+  setLowStockOnly(key === "stok" && showLowStock);
+
   setMobileMenu(false);
   setShowUserMenu(false);
 }
@@ -843,7 +849,8 @@ if (userRole === "employee") {
     }
     note="Jumlah produk aktif"
     icon={<Boxes size={20} />}
-    onClick={() => handleMenuClick("stok")}
+    onClick={() => handleMenuClick("stok", false)}
+
   />
 
   <StatCard
@@ -855,7 +862,7 @@ if (userRole === "employee") {
     }
     note="Barang yang perlu segera diisi"
     icon={<ClipboardList size={20} />}
-    onClick={() => handleMenuClick("stok")}
+    onClick={() => handleMenuClick("stok", true)}
   />
 
   <StatCard
@@ -955,7 +962,7 @@ if (userRole === "employee") {
 ) : active === "data-pegawai" ? (
   <EmployeeManagement />
           ) : active === "stok" ? (
-            <ProductManagement />
+  <ProductManagement lowStockOnly={lowStockOnly} />
           ) : active === "piutang" ? (
             <EmployeeDebtManagement />
           ) : active === "kehadiran" ? (

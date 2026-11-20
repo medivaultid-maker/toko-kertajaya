@@ -56,7 +56,11 @@ const formatRupiah = (value: number | null) =>
         maximumFractionDigits: 0,
       }).format(value);
 
-export default function ProductManagement() {
+export default function ProductManagement({
+  lowStockOnly = false,
+}: {
+  lowStockOnly?: boolean;
+}) {
   const [supabase] = useState(() => createClient());
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -207,22 +211,25 @@ const loadProducts = useCallback(async () => {
       product.current_selling_price === null
   ).length;
 
-  const filteredProducts = useMemo(() => {
-    const keyword = normalize(search);
+const filteredProducts = useMemo(() => {
+  const keyword = normalize(search);
 
-    return displayedProducts.filter((product) => {
-      const matchesSearch =
-        !keyword ||
-        normalize(product.product_code ?? "").includes(keyword) ||
-        normalize(product.name).includes(keyword) ||
-        normalize(product.brand ?? "").includes(keyword);
+  return displayedProducts.filter((product) => {
+    const matchesSearch =
+      !keyword ||
+      normalize(product.product_code ?? "").includes(keyword) ||
+      normalize(product.name).includes(keyword) ||
+      normalize(product.brand ?? "").includes(keyword);
 
-      const matchesFilter =
-        filter === "all" || product.price_status === filter;
+    const matchesFilter =
+      filter === "all" || product.price_status === filter;
 
-      return matchesSearch && matchesFilter;
-    });
-  }, [displayedProducts, search, filter]);
+    const matchesLowStock =
+      !lowStockOnly || Number(product.stock_quantity || 0) < 3;
+
+    return matchesSearch && matchesFilter && matchesLowStock;
+  });
+}, [displayedProducts, search, filter, lowStockOnly]);
 
   // =====================================================
   // FORM BARANG BARU
