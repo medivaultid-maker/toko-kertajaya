@@ -402,24 +402,38 @@ async function saveEmployeeWages(employee: Employee) {
 
 
  
+
 async function generatePayroll() {
   if (!canProcess) {
     setError("Periode belum selesai. Penggajian belum dapat dibuat.");
     return;
   }
 
-  if (currentPayrolls.length > 0) {
-    setError("Penggajian untuk periode ini sudah pernah dihitung.");
+  // Payroll paid tidak boleh dihitung ulang.
+  const paidPayrolls = currentPayrolls.filter(
+    (payroll) => payroll.payment_status === "paid"
+  );
+
+  if (paidPayrolls.length > 0) {
+    setError(
+      "Periode ini memiliki payroll yang sudah dibayar. Penghitungan ulang dibatalkan agar riwayat pembayaran tetap aman."
+    );
     return;
   }
 
-  if (
-    !confirm(
-      `Hitung gaji seluruh karyawan untuk periode ${formatDate(
+  const hasDraft = currentPayrolls.some(
+    (payroll) => payroll.payment_status === "draft"
+  );
+
+  const confirmationMessage = hasDraft
+    ? `Hitung ulang seluruh payroll DRAFT untuk periode ${formatDate(
         selectedPeriod.start
-      )} sampai ${formatDate(selectedPeriod.end)}?`
-    )
-  ) {
+      )} sampai ${formatDate(selectedPeriod.end)}? Payroll draft yang sudah ada akan diperbarui berdasarkan tarif dan absensi terbaru.`
+    : `Hitung gaji seluruh karyawan untuk periode ${formatDate(
+        selectedPeriod.start
+      )} sampai ${formatDate(selectedPeriod.end)}?`;
+
+  if (!confirm(confirmationMessage)) {
     return;
   }
 
@@ -427,19 +441,34 @@ async function generatePayroll() {
   setError("");
   setSuccess("");
 
-  const { error } = await supabase.rpc("generate_employee_payrolls", {
-    p_week_start: selectedStart,
-  });
+  try {
+    const { error } = await supabase.rpc("generate_employee_payrolls", {
+      p_week_start: selectedStart,
+    });
 
-  if (error) {
-    setError(`Gagal menghitung gaji: ${error.message}`);
-  } else {
-    setSuccess("Penggajian berhasil dihitung.");
+    if (error) {
+      setError(`Gagal menghitung gaji: ${error.message}`);
+      return;
+    }
+
+    setSuccess(
+      hasDraft
+        ? "Payroll draft berhasil diperbarui berdasarkan tarif dan absensi terbaru."
+        : "Penggajian berhasil dihitung."
+    );
+
     await loadData();
+  } catch (err) {
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Terjadi kesalahan saat menghitung penggajian."
+    );
+  } finally {
+    setProcessing(false);
   }
-
-  setProcessing(false);
 }
+
 
 
   async function payEmployee(payroll: Payroll) {
