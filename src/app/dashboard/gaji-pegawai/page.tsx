@@ -2451,12 +2451,12 @@ async function generatePayroll() {
 
   <Detail
     label="Absen pagi"
-    value={`${Number(item.morning_absent_sessions || 0)} / 7 sesi`}
+    value={`${Math.max(0, 7 - Number(item.morning_absent_sessions || 0))} / 7 sesi`}
   />
 
   <Detail
     label="Absen siang"
-    value={`${Number(item.afternoon_absent_sessions || 0)} / 7 sesi`}
+    value={`${Math.max(0, 7 - Number(item.afternoon_absent_sessions || 0))} / 7 sesi`}
   />
 
   <Detail
