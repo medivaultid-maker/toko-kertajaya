@@ -2270,7 +2270,8 @@ async function generatePayroll() {
               : "Menunggu periode penggajian berakhir"}
           </div>
 
-          <button
+    
+<button
   type="button"
   onClick={() => void generatePayroll()}
   disabled={
@@ -2278,17 +2279,24 @@ async function generatePayroll() {
     processing ||
     !canProcess ||
     employees.length === 0 ||
-    currentPayrolls.length > 0
+    currentPayrolls.some(
+      (payroll) => payroll.payment_status === "paid"
+    )
   }
   className="primary-btn"
 >
   <Calculator size={15} />
   {processing
     ? "Menghitung..."
-    : currentPayrolls.length > 0
-      ? "Gaji Sudah Dihitung"
-      : "Hitung Gaji"}
+    : currentPayrolls.some(
+        (payroll) => payroll.payment_status === "paid"
+      )
+      ? "Gaji Sudah Dibayar"
+      : currentPayrolls.length > 0
+        ? "Hitung Ulang Gaji"
+        : "Hitung Gaji"}
 </button>
+
         </div>
       </section>
 
