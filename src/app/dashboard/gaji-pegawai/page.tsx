@@ -2450,14 +2450,14 @@ async function generatePayroll() {
   />
 
   <Detail
-    label="Absen pagi"
-    value={`${Math.max(0, 7 - Number(item.morning_absent_sessions || 0))} / 7 sesi`}
-  />
+  label="Hadir pagi"
+  value={`${Math.max(0, 7 - Number(item.morning_absent_sessions || 0))} / 7 sesi`}
+/>
 
-  <Detail
-    label="Absen siang"
-    value={`${Math.max(0, 7 - Number(item.afternoon_absent_sessions || 0))} / 7 sesi`}
-  />
+<Detail
+  label="Hadir siang"
+  value={`${Math.max(0, 7 - Number(item.afternoon_absent_sessions || 0))} / 7 sesi`}
+/>
 
   <Detail
     label="Potongan pagi"
